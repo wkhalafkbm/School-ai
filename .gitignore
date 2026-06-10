@@ -1,5 +1,30 @@
-*.md
-.venv/
+# Presentation & demo assets (not part of the codebase)
+PRD.md
+Stakeholder\ Demo\ Plan.md
+Watson.ai\ Feedback.txt
+Student\ Uni\ Journey.pdf
+
+# Environment
 .env
-*.txt
-*.pdf
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Alembic
+backend/alembic/versions/*.py
+
+# Next.js
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+
+# Docker
+*.log
+
+# OS
+.DS_Store
