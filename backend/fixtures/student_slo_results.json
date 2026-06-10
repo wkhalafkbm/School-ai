@@ -1,0 +1,14 @@
+[
+  { "id": "ssr-001", "student_id": "stu-003", "slo_id": "slo-004", "course_id": "crs-002", "semester": "2024-Fall", "assessment_id": "sla-004", "score": 38.0, "proficient": false, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-002", "student_id": "stu-003", "slo_id": "slo-005", "course_id": "crs-002", "semester": "2024-Fall", "assessment_id": "sla-005", "score": 32.0, "proficient": false, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-003", "student_id": "stu-003", "slo_id": "slo-006", "course_id": "crs-002", "semester": "2024-Fall", "assessment_id": "sla-006", "score": 45.0, "proficient": false, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-004", "student_id": "stu-003", "slo_id": "slo-010", "course_id": "crs-004", "semester": "2024-Fall", "assessment_id": "sla-010", "score": 41.0, "proficient": false, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-005", "student_id": "stu-004", "slo_id": "slo-010", "course_id": "crs-004", "semester": "2024-Fall", "assessment_id": "sla-010", "score": 63.0, "proficient": true, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-006", "student_id": "stu-004", "slo_id": "slo-012", "course_id": "crs-006", "semester": "2024-Fall", "assessment_id": null, "score": 66.0, "proficient": true, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-007", "student_id": "stu-005", "slo_id": "slo-013", "course_id": "crs-007", "semester": "2024-Fall", "assessment_id": "sla-011", "score": 91.0, "proficient": true, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-008", "student_id": "stu-005", "slo_id": "slo-010", "course_id": "crs-004", "semester": "2022-Fall", "assessment_id": null, "score": 88.0, "proficient": true, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-009", "student_id": "stu-002", "slo_id": "slo-001", "course_id": "crs-001", "semester": "2024-Fall", "assessment_id": "sla-001", "score": 76.0, "proficient": true, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-010", "student_id": "stu-002", "slo_id": "slo-002", "course_id": "crs-001", "semester": "2024-Fall", "assessment_id": "sla-002", "score": 68.0, "proficient": true, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-011", "student_id": "stu-012", "slo_id": "slo-012", "course_id": "crs-006", "semester": "2024-Fall", "assessment_id": null, "score": 84.0, "proficient": true, "attempt_number": 1, "data_source": "LMS" },
+  { "id": "ssr-012", "student_id": "stu-003", "slo_id": "slo-001", "course_id": "crs-001", "semester": "2023-Fall", "assessment_id": null, "score": 44.0, "proficient": false, "attempt_number": 1, "data_source": "LMS" }
+]

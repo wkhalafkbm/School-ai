@@ -15,8 +15,6 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 
-# Alembic
-backend/alembic/versions/*.py
 
 # Next.js
 frontend/.next/

@@ -1,0 +1,20 @@
+[
+  { "id": "grq-001", "program_id": "prog-001", "requirement_type": "total_credits", "description": "Minimum total credit hours", "required_value": 132, "data_source": "SIS" },
+  { "id": "grq-002", "program_id": "prog-001", "requirement_type": "core_credits", "description": "Core CS courses credit hours", "required_value": 60, "data_source": "SIS" },
+  { "id": "grq-003", "program_id": "prog-001", "requirement_type": "math_credits", "description": "Mathematics course credit hours", "required_value": 12, "data_source": "SIS" },
+  { "id": "grq-004", "program_id": "prog-001", "requirement_type": "min_gpa", "description": "Minimum cumulative GPA for graduation", "required_value": 2.0, "data_source": "SIS" },
+  { "id": "grq-005", "program_id": "prog-001", "requirement_type": "capstone", "description": "Must complete CS480 and CS490", "required_value": 1, "data_source": "SIS" },
+  { "id": "grq-006", "program_id": "prog-001", "requirement_type": "internship", "description": "Minimum internship hours", "required_value": 240, "data_source": "SIS" },
+  { "id": "grq-007", "program_id": "prog-002", "requirement_type": "total_credits", "description": "Minimum total credit hours", "required_value": 126, "data_source": "SIS" },
+  { "id": "grq-008", "program_id": "prog-002", "requirement_type": "min_gpa", "description": "Minimum cumulative GPA for graduation", "required_value": 2.0, "data_source": "SIS" },
+  { "id": "grq-009", "program_id": "prog-003", "requirement_type": "total_credits", "description": "Minimum total credit hours", "required_value": 138, "data_source": "SIS" },
+  { "id": "grq-010", "program_id": "prog-003", "requirement_type": "min_gpa", "description": "Minimum cumulative GPA for graduation", "required_value": 2.0, "data_source": "SIS" },
+  { "id": "grq-011", "program_id": "prog-004", "requirement_type": "total_credits", "description": "Minimum total credit hours", "required_value": 120, "data_source": "SIS" },
+  { "id": "grq-012", "program_id": "prog-004", "requirement_type": "min_gpa", "description": "Minimum cumulative GPA for graduation", "required_value": 2.0, "data_source": "SIS" },
+  { "id": "grq-013", "program_id": "prog-005", "requirement_type": "total_credits", "description": "Minimum total credit hours", "required_value": 120, "data_source": "SIS" },
+  { "id": "grq-014", "program_id": "prog-005", "requirement_type": "min_gpa", "description": "Minimum cumulative GPA for graduation", "required_value": 2.0, "data_source": "SIS" },
+  { "id": "grq-015", "program_id": "prog-006", "requirement_type": "total_credits", "description": "Minimum total credit hours", "required_value": 138, "data_source": "SIS" },
+  { "id": "grq-016", "program_id": "prog-006", "requirement_type": "min_gpa", "description": "Minimum cumulative GPA for graduation", "required_value": 2.0, "data_source": "SIS" },
+  { "id": "grq-017", "program_id": "prog-007", "requirement_type": "total_credits", "description": "Minimum total credit hours", "required_value": 128, "data_source": "SIS" },
+  { "id": "grq-018", "program_id": "prog-007", "requirement_type": "min_gpa", "description": "Minimum cumulative GPA for graduation", "required_value": 2.0, "data_source": "SIS" }
+]

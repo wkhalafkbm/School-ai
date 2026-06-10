@@ -1,0 +1,14 @@
+[
+  { "id": "fac-001", "name": "Dr. Ahmed Al-Rashidi", "title": "Professor", "department": "Computer Science", "email": "a.alrashidi@university.edu.kw", "specialization": "Machine Learning", "data_source": "SIS" },
+  { "id": "fac-002", "name": "Dr. Sara Al-Enezi", "title": "Associate Professor", "department": "Computer Science", "email": "s.alenezi@university.edu.kw", "specialization": "Software Engineering", "data_source": "SIS" },
+  { "id": "fac-003", "name": "Dr. Khalid Al-Sabah", "title": "Professor", "department": "Mathematics", "email": "k.alsabah@university.edu.kw", "specialization": "Applied Mathematics", "data_source": "SIS" },
+  { "id": "fac-004", "name": "Dr. Mona Al-Kharafi", "title": "Associate Professor", "department": "Information Systems", "email": "m.alkharafi@university.edu.kw", "specialization": "Database Systems", "data_source": "SIS" },
+  { "id": "fac-005", "name": "Dr. Yousef Al-Mutawa", "title": "Assistant Professor", "department": "Computer Science", "email": "y.almutawa@university.edu.kw", "specialization": "Cybersecurity", "data_source": "SIS" },
+  { "id": "fac-006", "name": "Dr. Hessa Al-Failakawi", "title": "Professor", "department": "Electrical Engineering", "email": "h.alfailakawi@university.edu.kw", "specialization": "Signal Processing", "data_source": "SIS" },
+  { "id": "fac-007", "name": "Dr. Bader Al-Osaimi", "title": "Associate Professor", "department": "Business Administration", "email": "b.alosaimi@university.edu.kw", "specialization": "Strategic Management", "data_source": "SIS" },
+  { "id": "fac-008", "name": "Dr. Aisha Al-Shammari", "title": "Assistant Professor", "department": "Accounting", "email": "a.alshammari@university.edu.kw", "specialization": "Financial Accounting", "data_source": "SIS" },
+  { "id": "fac-009", "name": "Dr. Tariq Al-Hajri", "title": "Professor", "department": "Civil Engineering", "email": "t.alhajri@university.edu.kw", "specialization": "Structural Engineering", "data_source": "SIS" },
+  { "id": "fac-010", "name": "Dr. Noura Al-Azemi", "title": "Associate Professor", "department": "Computer Science", "email": "n.alazemi@university.edu.kw", "specialization": "Computer Networks", "data_source": "SIS" },
+  { "id": "fac-011", "name": "Dr. Faisal Al-Kandari", "title": "Assistant Professor", "department": "Information Systems", "email": "f.alkandari@university.edu.kw", "specialization": "Enterprise Systems", "data_source": "SIS" },
+  { "id": "fac-012", "name": "Dr. Reem Al-Dashti", "title": "Associate Professor", "department": "Mathematics", "email": "r.aldashti@university.edu.kw", "specialization": "Discrete Mathematics", "data_source": "SIS" }
+]

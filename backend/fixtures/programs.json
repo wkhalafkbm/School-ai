@@ -1,0 +1,9 @@
+[
+  { "id": "prog-001", "name": "Computer Science", "department": "College of Engineering & IT", "degree_level": "Bachelor", "total_credits": 132, "duration_years": 4, "data_source": "SIS" },
+  { "id": "prog-002", "name": "Information Systems", "department": "College of Engineering & IT", "degree_level": "Bachelor", "total_credits": 126, "duration_years": 4, "data_source": "SIS" },
+  { "id": "prog-003", "name": "Electrical Engineering", "department": "College of Engineering & IT", "degree_level": "Bachelor", "total_credits": 138, "duration_years": 4, "data_source": "SIS" },
+  { "id": "prog-004", "name": "Business Administration", "department": "College of Business", "degree_level": "Bachelor", "total_credits": 120, "duration_years": 4, "data_source": "SIS" },
+  { "id": "prog-005", "name": "Accounting", "department": "College of Business", "degree_level": "Bachelor", "total_credits": 120, "duration_years": 4, "data_source": "SIS" },
+  { "id": "prog-006", "name": "Civil Engineering", "department": "College of Engineering & IT", "degree_level": "Bachelor", "total_credits": 138, "duration_years": 4, "data_source": "SIS" },
+  { "id": "prog-007", "name": "Cybersecurity", "department": "College of Engineering & IT", "degree_level": "Bachelor", "total_credits": 128, "duration_years": 4, "data_source": "SIS" }
+]

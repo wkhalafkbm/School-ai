@@ -1,0 +1,18 @@
+[
+  { "id": "pre-001", "course_id": "crs-002", "prerequisite_course_id": "crs-001", "min_grade": "D", "data_source": "SIS" },
+  { "id": "pre-002", "course_id": "crs-004", "prerequisite_course_id": "crs-002", "min_grade": "C", "data_source": "SIS" },
+  { "id": "pre-003", "course_id": "crs-005", "prerequisite_course_id": "crs-001", "min_grade": "D", "data_source": "SIS" },
+  { "id": "pre-004", "course_id": "crs-006", "prerequisite_course_id": "crs-004", "min_grade": "C", "data_source": "SIS" },
+  { "id": "pre-005", "course_id": "crs-007", "prerequisite_course_id": "crs-004", "min_grade": "C", "data_source": "SIS" },
+  { "id": "pre-006", "course_id": "crs-007", "prerequisite_course_id": "crs-022", "min_grade": "C", "data_source": "SIS" },
+  { "id": "pre-007", "course_id": "crs-008", "prerequisite_course_id": "crs-005", "min_grade": "D", "data_source": "SIS" },
+  { "id": "pre-008", "course_id": "crs-009", "prerequisite_course_id": "crs-008", "min_grade": "C", "data_source": "SIS" },
+  { "id": "pre-009", "course_id": "crs-021", "prerequisite_course_id": "crs-003", "min_grade": "D", "data_source": "SIS" },
+  { "id": "pre-010", "course_id": "crs-022", "prerequisite_course_id": "crs-021", "min_grade": "D", "data_source": "SIS" },
+  { "id": "pre-011", "course_id": "crs-010", "prerequisite_course_id": "crs-001", "min_grade": "D", "data_source": "SIS" },
+  { "id": "pre-012", "course_id": "crs-011", "prerequisite_course_id": "crs-010", "min_grade": "C", "data_source": "SIS" },
+  { "id": "pre-013", "course_id": "crs-023", "prerequisite_course_id": "crs-006", "min_grade": "C", "data_source": "SIS" },
+  { "id": "pre-014", "course_id": "crs-024", "prerequisite_course_id": "crs-023", "min_grade": "C", "data_source": "SIS" },
+  { "id": "pre-015", "course_id": "crs-025", "prerequisite_course_id": "crs-009", "min_grade": "C", "data_source": "SIS" },
+  { "id": "pre-016", "course_id": "crs-014", "prerequisite_course_id": "crs-013", "min_grade": "D", "data_source": "SIS" }
+]
