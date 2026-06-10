@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Status color palette */
+    --color-on-track: #16a34a;        /* green-600 */
+    --color-watch: #ca8a04;           /* yellow-600 */
+    --color-needs-attention: #ea580c; /* orange-600 */
+    --color-urgent: #dc2626;          /* red-600 */
+    --color-opportunity: #0d9488;     /* teal-600 */
+
+    /* Surface & text */
+    --color-surface: #ffffff;
+    --color-surface-subtle: #f8fafc;
+    --color-surface-muted: #f1f5f9;
+    --color-border: #e2e8f0;
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #475569;
+    --color-text-muted: #94a3b8;
+
+    /* Sidebar */
+    --color-sidebar-bg: #0f172a;       /* slate-900 */
+    --color-sidebar-text: #cbd5e1;     /* slate-300 */
+    --color-sidebar-active-bg: #1e293b; /* slate-800 */
+    --color-sidebar-active-text: #f8fafc;
+
+    /* Top bar */
+    --color-topbar-bg: #ffffff;
+    --color-topbar-border: #e2e8f0;
+
+    /* Typography scale */
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+  }
+}
+
+/* Shell layout */
+.shell-layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-surface-subtle);
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background-color: var(--color-sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  padding-top: 1rem;
+}
+
+.sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav-link {
+  display: block;
+  padding: 0.625rem 1.25rem;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-sidebar-text);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.nav-link:hover {
+  background-color: var(--color-sidebar-active-bg);
+  color: var(--color-sidebar-active-text);
+}
+
+.nav-link--active {
+  background-color: var(--color-sidebar-active-bg);
+  color: var(--color-sidebar-active-text);
+  border-left-color: var(--color-on-track);
+}
+
+/* Top bar */
+.top-bar {
+  height: 56px;
+  background-color: var(--color-topbar-bg);
+  border-bottom: 1px solid var(--color-topbar-border);
+  display: flex;
+  align-items: center;
+  padding: 0 1.5rem;
+}
+
+.top-bar__name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* Content area */
+.shell-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page-content {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}

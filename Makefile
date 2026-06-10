@@ -1,9 +1,10 @@
-.PHONY: dev stop test migrate seed setup
+.PHONY: dev stop test test-frontend migrate seed setup
 
 setup:
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example — review before running."; fi
 	@python3 -m venv .venv
 	@.venv/bin/pip install -q -r backend/requirements.txt -r backend/requirements-dev.txt
+	@cd frontend && npm install
 	@echo "Setup complete. Run 'make dev' to start."
 
 dev:
@@ -15,6 +16,9 @@ stop:
 
 test:
 	cd backend && ../.venv/bin/pytest -v
+
+test-frontend:
+	cd frontend && npm test
 
 migrate:
 	cd backend && ../.venv/bin/alembic upgrade head
