@@ -125,8 +125,7 @@ def _coerce_record(record: dict, table_obj) -> dict:
     result = {}
     for k, v in record.items():
         if k in bool_cols and isinstance(v, str):
-            # Fixture may store risk levels ("high", "none") in a Boolean column
-            result[k] = v.lower() not in ("false", "none", "0", "")
+            result[k] = v.lower() not in ("false", "0", "")
         else:
             result[k] = v
     return result

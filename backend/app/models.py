@@ -132,7 +132,7 @@ class LMSSignal(Base):
     avg_quiz_score = Column(Float)
     video_watch_rate = Column(Float)
     forum_posts = Column(Integer)
-    risk_flag = Column(Boolean, default=False)
+    risk_flag = Column(String(10), default="none")
     data_source = Column(SAEnum(DataSource), nullable=False)
 
     student = relationship("Student", back_populates="lms_signals")
