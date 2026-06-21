@@ -7,6 +7,8 @@ Student\ Uni\ Journey.pdf
 # Environment
 .env
 .venv/
+creds.json
+*creds*.json
 
 # Python
 __pycache__/
