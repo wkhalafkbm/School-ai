@@ -170,7 +170,7 @@ def priority_queue(db: Session = Depends(get_db)):
                 FROM signals
                 ORDER BY student_id, rank DESC
             )
-            SELECT student_name, stage, status, reason
+            SELECT student_id, student_name, stage, status, reason
             FROM ranked
             ORDER BY rank DESC
             LIMIT 20
@@ -179,10 +179,11 @@ def priority_queue(db: Session = Depends(get_db)):
 
     return [
         {
-            "student_name": r[0],
-            "stage": r[1],
-            "status": r[2],
-            "reason": r[3],
+            "student_id": r[0],
+            "student_name": r[1],
+            "stage": r[2],
+            "status": r[3],
+            "reason": r[4],
         }
         for r in rows
     ]

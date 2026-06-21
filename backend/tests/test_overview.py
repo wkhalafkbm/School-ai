@@ -156,6 +156,7 @@ def test_priority_queue_items_have_required_fields(client):
     data = client.get("/api/overview/priority-queue").json()
     assert len(data) > 0
     for item in data:
+        assert "student_id" in item
         assert "student_name" in item
         assert "stage" in item
         assert "status" in item

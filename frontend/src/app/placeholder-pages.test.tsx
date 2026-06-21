@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 
 const PAGES = [
-  { label: "Overview", path: "../app/page" },
   { label: "Admissions", path: "../app/admissions/page" },
   { label: "Enrollment", path: "../app/enrollment/page" },
   { label: "Teaching Readiness", path: "../app/teaching-readiness/page" },
