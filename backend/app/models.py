@@ -360,6 +360,10 @@ class WorkflowItem(Base):
     due_date = Column(Date)
     completed_date = Column(Date)
     data_source = Column(SAEnum(DataSource), nullable=False)
+    stage = Column(String)
+    trigger = Column(String)
+    owner_name = Column(String)
+    owner_role = Column(String)
 
     student = relationship("Student", back_populates="workflow_items")
 
