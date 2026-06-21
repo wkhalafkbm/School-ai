@@ -1,6 +1,6 @@
 [
-  { "id": "fac-001", "name": "Dr. Ahmed Al-Rashidi", "title": "Professor", "department": "Computer Science", "email": "a.alrashidi@university.edu.kw", "specialization": "Machine Learning", "data_source": "SIS" },
-  { "id": "fac-002", "name": "Dr. Sara Al-Enezi", "title": "Associate Professor", "department": "Computer Science", "email": "s.alenezi@university.edu.kw", "specialization": "Software Engineering", "data_source": "SIS" },
+  { "id": "fac-001", "name": "Dr. Ahmed Al-Rashidi", "title": "Professor", "department": "Computer Science", "email": "a.alrashidi@university.edu.kw", "specialization": "Machine Learning", "max_credits": 12, "current_credits": 15, "data_source": "SIS" },
+  { "id": "fac-002", "name": "Dr. Sara Al-Enezi", "title": "Associate Professor", "department": "Computer Science", "email": "s.alenezi@university.edu.kw", "specialization": "Software Engineering", "max_credits": 15, "current_credits": 9, "data_source": "SIS" },
   { "id": "fac-003", "name": "Dr. Khalid Al-Sabah", "title": "Professor", "department": "Mathematics", "email": "k.alsabah@university.edu.kw", "specialization": "Applied Mathematics", "data_source": "SIS" },
   { "id": "fac-004", "name": "Dr. Mona Al-Kharafi", "title": "Associate Professor", "department": "Information Systems", "email": "m.alkharafi@university.edu.kw", "specialization": "Database Systems", "data_source": "SIS" },
   { "id": "fac-005", "name": "Dr. Yousef Al-Mutawa", "title": "Assistant Professor", "department": "Computer Science", "email": "y.almutawa@university.edu.kw", "specialization": "Cybersecurity", "data_source": "SIS" },

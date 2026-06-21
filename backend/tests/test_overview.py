@@ -99,7 +99,7 @@ def test_metrics_values_match_seeded_data(client):
     assert data["at_risk_detected_early"] == 1
     assert data["registration_issues_resolved"] == 0
     assert data["graduation_delays_prevented"] == 1
-    assert data["faculty_overload_alerts"] == 0
+    assert data["faculty_overload_alerts"] == 1  # fac-001 is 15 credits against a 12-credit cap
 
 
 # ── /api/overview/journey-health ──────────────────────────────────────────────
