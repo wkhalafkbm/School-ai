@@ -1,4 +1,4 @@
-.PHONY: dev stop test test-frontend migrate seed setup
+.PHONY: dev stop test test-frontend migrate seed setup import-write-tools
 
 setup:
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example — review before running."; fi
@@ -25,3 +25,6 @@ migrate:
 
 seed:
 	cd backend && ../.venv/bin/python -m app.seed
+
+import-write-tools:
+	orchestrate tools import --kind openapi --file orchestrate/tools/write_tools.yaml

@@ -1,0 +1,236 @@
+openapi: 3.1.0
+info:
+  title: University AI — Orchestrate Write Tools
+  version: 1.0.0
+paths:
+  /api/workflows:
+    post:
+      tags:
+      - workflows
+      summary: Create workflow item
+      description: >-
+        Called by any of the nine journey agents whenever they need to assign work
+        to a named staff member. Creates a new workflow item in PostgreSQL via the
+        Workflow Orchestration Gateway and returns the persisted record with its
+        generated id. Set status to "pending" on creation.
+      operationId: create_workflow_item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowItemCreate'
+      responses:
+        '201':
+          description: Workflow item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowItemResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/workflows/{item_id}:
+    patch:
+      tags:
+      - workflows
+      summary: Update workflow item
+      description: >-
+        Called by agents when a human approval changes the status of an item
+        (approved, complete), or when the UI sends an approval action that triggers
+        an agent follow-up. Only status and due_date are patchable.
+      operationId: update_workflow_item
+      parameters:
+      - name: item_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Item Id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkflowItemPatch'
+      responses:
+        '200':
+          description: Workflow item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowItemResponse'
+        '404':
+          description: Item not found
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    WorkflowItemCreate:
+      type: object
+      title: WorkflowItemCreate
+      description: >-
+        Payload the agent sends to create a workflow item. Mirrors the FastAPI
+        WorkflowItemCreate Pydantic model in backend/app/routers/workflows.py.
+      required:
+      - stage
+      - trigger
+      - owner_name
+      - owner_role
+      - status
+      - description
+      properties:
+        stage:
+          type: string
+          title: Stage
+          description: >-
+            Journey stage that generated this item. One of: admissions, enrollment,
+            teaching_readiness, academic_risk, progression, career.
+        trigger:
+          type: string
+          title: Trigger
+          description: >-
+            Human-readable description of what caused this item, e.g.
+            "Pathway recommendation generated for Waleed Khalaf".
+        owner_name:
+          type: string
+          title: Owner Name
+          description: Full name of the staff member responsible, e.g. "Sara Al-Rashidi".
+        owner_role:
+          type: string
+          title: Owner Role
+          description: >-
+            Role of the responsible staff member. One of: admissions officer,
+            registrar specialist, department chair, faculty advisor,
+            student affairs officer, academic advisor, career advisor.
+        status:
+          type: string
+          title: Status
+          description: Always "pending" on creation.
+          default: pending
+        description:
+          type: string
+          title: Description
+          description: What action the staff member must take.
+        due_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due Date
+          description: ISO 8601 date by which the action must be completed.
+        student_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Student Id
+          description: Optional student record this item relates to.
+    WorkflowItemPatch:
+      type: object
+      title: WorkflowItemPatch
+      description: >-
+        Partial update payload. Mirrors the FastAPI WorkflowItemPatch Pydantic model.
+        Only status and due_date may be changed after creation.
+      properties:
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+          description: >-
+            New status. One of: pending, in_progress, approved, complete.
+        due_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due Date
+          description: Revised ISO 8601 due date.
+    WorkflowItemResponse:
+      type: object
+      title: WorkflowItemResponse
+      required:
+      - id
+      - stage
+      properties:
+        id:
+          type: string
+          title: Id
+        stage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stage
+        trigger:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trigger
+        owner_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner Name
+        owner_role:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner Role
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        due_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due Date
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        student_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Student Id
+    HTTPValidationError:
+      type: object
+      title: HTTPValidationError
+      properties:
+        detail:
+          type: array
+          title: Detail
+          items:
+            $ref: '#/components/schemas/ValidationError'
+    ValidationError:
+      type: object
+      title: ValidationError
+      required:
+      - loc
+      - msg
+      - type
+      properties:
+        loc:
+          type: array
+          title: Location
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
