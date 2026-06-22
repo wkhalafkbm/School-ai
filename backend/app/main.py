@@ -1,12 +1,19 @@
 from fastapi import FastAPI
 
 from app.routers import admissions, overview, recommendations, workflows
+from app.routers import students, programs, courses, cohorts, faculty, alumni
 
 app = FastAPI(title="University AI Operating Center")
 app.include_router(admissions.router)
 app.include_router(overview.router)
 app.include_router(recommendations.router)
 app.include_router(workflows.router)
+app.include_router(students.router)
+app.include_router(programs.router)
+app.include_router(courses.router)
+app.include_router(cohorts.router)
+app.include_router(faculty.router)
+app.include_router(alumni.router)
 
 
 @app.get("/health")

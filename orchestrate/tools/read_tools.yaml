@@ -1,0 +1,957 @@
+openapi: 3.1.0
+info:
+  title: University AI — Orchestrate Read Tools
+  version: 1.0.0
+paths:
+  /api/students/{student_id}:
+    get:
+      tags:
+      - students
+      summary: Get student profile
+      description: 'Returns core profile fields for a student: name, program, status,
+        GPA, year level, admission term, and nationality.'
+      operationId: get_student_profile_api_students__student_id__get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/academic-history:
+    get:
+      tags:
+      - students
+      summary: Get applicant academic history
+      description: Returns the student's full enrollment history including course
+        names, semesters, grades, and status.
+      operationId: get_academic_history_api_students__student_id__academic_history_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/sponsorship:
+    get:
+      tags:
+      - students
+      summary: Get sponsorship status
+      description: Returns all sponsorship records for a student including sponsor
+        name, coverage type, amount, and approval status.
+      operationId: get_sponsorship_status_api_students__student_id__sponsorship_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/onboarding:
+    get:
+      tags:
+      - students
+      summary: Get onboarding status
+      description: Returns all onboarding tasks for a student with completion status,
+        category, and due dates.
+      operationId: get_onboarding_status_api_students__student_id__onboarding_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/registrations:
+    get:
+      tags:
+      - students
+      summary: Get course registrations
+      description: Returns all course registrations for a student including course
+        name, semester, status, and grade.
+      operationId: get_course_registrations_api_students__student_id__registrations_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/prerequisites:
+    get:
+      tags:
+      - students
+      summary: Get prerequisite check
+      description: Returns prerequisite status for each enrolled course, indicating
+        whether each prerequisite has been met.
+      operationId: get_prerequisite_check_api_students__student_id__prerequisites_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/financial-holds:
+    get:
+      tags:
+      - students
+      summary: Get financial holds
+      description: Returns financial aid records for a student including aid type,
+        amount, status, and renewal conditions.
+      operationId: get_financial_holds_api_students__student_id__financial_holds_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/admin-holds:
+    get:
+      tags:
+      - students
+      summary: Get administrative holds
+      description: Returns all administrative holds on a student including hold type,
+        severity, and whether they block registration or transcript release.
+      operationId: get_admin_holds_api_students__student_id__admin_holds_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/lms-signals:
+    get:
+      tags:
+      - students
+      summary: Get LMS signals
+      description: Returns LMS engagement signals per course including login frequency,
+        assignment submission rate, quiz scores, and risk flag.
+      operationId: get_lms_signals_api_students__student_id__lms_signals_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/attendance:
+    get:
+      tags:
+      - students
+      summary: Get attendance summary
+      description: Returns per-course attendance signals derived from LMS login activity,
+        video watch rate, and engagement risk flag.
+      operationId: get_attendance_api_students__student_id__attendance_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/early-grades:
+    get:
+      tags:
+      - students
+      summary: Get early grades
+      description: Returns SLO assessment results for a student indicating early performance
+        signals, proficiency, and attempt number per course.
+      operationId: get_early_grades_api_students__student_id__early_grades_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/support-history:
+    get:
+      tags:
+      - students
+      summary: Get support history
+      description: Returns all support cases for a student including case type, subject,
+        priority, status, and resolution.
+      operationId: get_support_history_api_students__student_id__support_history_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/risk-summary:
+    get:
+      tags:
+      - students
+      summary: Get risk summary
+      description: Returns a synthesised risk level (high/medium/low/none) and list
+        of risk factors derived from LMS signals, support cases, and administrative
+        holds.
+      operationId: get_risk_summary_api_students__student_id__risk_summary_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/transcript:
+    get:
+      tags:
+      - students
+      summary: Get transcript
+      description: Returns the student's full academic transcript including all courses,
+        credits, grades, and cumulative GPA.
+      operationId: get_transcript_api_students__student_id__transcript_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/skills:
+    get:
+      tags:
+      - students
+      summary: Get skill profile
+      description: Returns the student's career pathway including target role, skills
+        gap, recommended courses, target companies, and internship timeline.
+      operationId: get_skill_profile_api_students__student_id__skills_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/programs:
+    get:
+      tags:
+      - programs
+      summary: Get program options
+      description: Returns all available degree programs including name, department,
+        degree level, total credits, and duration.
+      operationId: get_program_options_api_programs_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/programs/{program_id}/success-patterns:
+    get:
+      tags:
+      - programs
+      summary: Get historical success patterns
+      description: Returns alumni outcomes and industry breakdown for a program, showing
+        historical graduate success patterns by industry and role.
+      operationId: get_success_patterns_api_programs__program_id__success_patterns_get
+      parameters:
+      - name: program_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Program Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/programs/{program_id}/requirements:
+    get:
+      tags:
+      - programs
+      summary: Get curriculum requirements
+      description: Returns all graduation requirements for a program including credit
+        thresholds, mandatory courses, and capstone conditions.
+      operationId: get_curriculum_requirements_api_programs__program_id__requirements_get
+      parameters:
+      - name: program_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Program Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/programs/{program_id}/electives:
+    get:
+      tags:
+      - programs
+      summary: Get electives
+      description: Returns available elective courses for a program — courses that
+        are not required as prerequisites for any other course.
+      operationId: get_electives_api_programs__program_id__electives_get
+      parameters:
+      - name: program_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Program Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/courses/{course_id}/slo-history:
+    get:
+      tags:
+      - courses
+      summary: Get cohort SLO history
+      description: Returns historical SLO proficiency rates and average scores for
+        a course across past semesters.
+      operationId: get_cohort_slo_history_api_courses__course_id__slo_history_get
+      parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Course Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/courses/{course_id}/slo-assessments:
+    get:
+      tags:
+      - courses
+      summary: Get SLO assessments
+      description: Returns SLO assessment records for a course including proficiency
+        rates, average scores, and number of students assessed per SLO.
+      operationId: get_slo_assessments_api_courses__course_id__slo_assessments_get
+      parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Course Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/courses/{course_id}/availability:
+    get:
+      tags:
+      - courses
+      summary: Get course availability
+      description: Returns scheduled sections for a course with capacity, current
+        enrollment, seats available, days, and time slots.
+      operationId: get_course_availability_api_courses__course_id__availability_get
+      parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Course Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/courses/{course_id}/slo-performance:
+    get:
+      tags:
+      - courses
+      summary: Get course SLO performance
+      description: Returns per-SLO performance summary for a course including proficiency
+        rate and total students assessed.
+      operationId: get_course_slo_performance_api_courses__course_id__slo_performance_get
+      parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Course Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/cohorts/{cohort_id}/prerequisite-gaps:
+    get:
+      tags:
+      - cohorts
+      summary: Get prerequisite gaps
+      description: Returns students in a program cohort who are enrolled in courses
+        without having passed the required prerequisites.
+      operationId: get_prerequisite_gaps_api_cohorts__cohort_id__prerequisite_gaps_get
+      parameters:
+      - name: cohort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Cohort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/cohorts/{cohort_id}/slo-results:
+    get:
+      tags:
+      - cohorts
+      summary: Get cohort SLO results
+      description: Returns SLO proficiency history across all courses in a program
+        cohort, aggregated by course and semester.
+      operationId: get_cohort_slo_results_api_cohorts__cohort_id__slo_results_get
+      parameters:
+      - name: cohort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Cohort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/cohorts/{cohort_id}/progression:
+    get:
+      tags:
+      - cohorts
+      summary: Get cohort progression
+      description: Returns credit progression and graduation timeline for each student
+        in a program cohort, including on-track status and projected graduation date.
+      operationId: get_cohort_progression_api_cohorts__cohort_id__progression_get
+      parameters:
+      - name: cohort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Cohort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/faculty:
+    get:
+      tags:
+      - faculty
+      summary: Get faculty list
+      description: Returns all faculty members with name, title, department, email,
+        and specialization.
+      operationId: get_faculty_list_api_faculty_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/faculty/{faculty_id}/workload:
+    get:
+      tags:
+      - faculty
+      summary: Get faculty workload
+      description: Returns a faculty member's current credit load, maximum credits,
+        overload status, and list of assigned courses.
+      operationId: get_faculty_workload_api_faculty__faculty_id__workload_get
+      parameters:
+      - name: faculty_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Faculty Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/mentors:
+    get:
+      tags:
+      - alumni
+      summary: Get mentor pool
+      description: Returns all available alumni mentors with their current role, company,
+        industry, mentoring capacity, and availability status.
+      operationId: get_mentor_pool_api_mentors_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/alumni/mentors:
+    get:
+      tags:
+      - alumni
+      summary: Get alumni mentors
+      description: Returns all alumni who are available as mentors, with graduation
+        year, current role, company, and mentoring capacity.
+      operationId: get_alumni_mentors_api_alumni_mentors_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/alumni/outcomes:
+    get:
+      tags:
+      - alumni
+      summary: Get graduate outcomes
+      description: Returns graduate outcome data including industry breakdown and
+        individual alumni career trajectories.
+      operationId: get_graduate_outcomes_api_alumni_outcomes_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/internships:
+    get:
+      tags:
+      - alumni
+      summary: Get internship options
+      description: Returns available internship opportunities derived from student
+        career pathways, including target company, industry, and recommended semester.
+      operationId: get_internship_options_api_internships_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    RecommendationRequest:
+      properties:
+        entity_id:
+          type: string
+          title: Entity Id
+        entity_type:
+          type: string
+          enum:
+          - student
+          - cohort
+          title: Entity Type
+        action:
+          type: string
+          title: Action
+      type: object
+      required:
+      - entity_id
+      - entity_type
+      - action
+      title: RecommendationRequest
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    WorkflowItemCreate:
+      properties:
+        stage:
+          type: string
+          title: Stage
+        trigger:
+          type: string
+          title: Trigger
+        owner_name:
+          type: string
+          title: Owner Name
+        owner_role:
+          type: string
+          title: Owner Role
+        status:
+          type: string
+          title: Status
+        due_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due Date
+        description:
+          type: string
+          title: Description
+        student_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Student Id
+      type: object
+      required:
+      - stage
+      - trigger
+      - owner_name
+      - owner_role
+      - status
+      - description
+      title: WorkflowItemCreate
+    WorkflowItemPatch:
+      properties:
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        due_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due Date
+      type: object
+      title: WorkflowItemPatch
+    WorkflowItemResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        stage:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Stage
+        trigger:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Trigger
+        owner_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner Name
+        owner_role:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner Role
+        status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Status
+        due_date:
+          anyOf:
+          - type: string
+            format: date
+          - type: 'null'
+          title: Due Date
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        student_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Student Id
+      type: object
+      required:
+      - id
+      - stage
+      - trigger
+      - owner_name
+      - owner_role
+      - status
+      - due_date
+      - description
+      - student_id
+      title: WorkflowItemResponse
