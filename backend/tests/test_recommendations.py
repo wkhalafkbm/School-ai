@@ -1,7 +1,7 @@
-import pytest
-import respx
+import time
+
 import httpx
-from fastapi.testclient import TestClient
+import pytest
 
 import app.gateway.iam as iam_module
 import app.gateway.orchestrate as orchestrate_module
@@ -9,6 +9,7 @@ from app.main import app
 
 WXO_BASE = "https://wxo.example.com"
 AGENT_ADMISSIONS = "agent-admissions-001"
+IAM_URL = "https://iam.cloud.ibm.com/identity/token"
 
 
 @pytest.fixture(autouse=True)
@@ -18,40 +19,51 @@ def reset_iam():
     yield
 
 
+@pytest.fixture
+async def client():
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+
+
+def _mock_iam_and_run(router, run_id: str, final_status: str) -> None:
+    router.post(IAM_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+    )
+    router.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
+        return_value=httpx.Response(200, json={"run_id": run_id})
+    )
+    router.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/{run_id}").mock(
+        return_value=httpx.Response(200, json={"status": final_status, "output": {}})
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tracer bullet: success path
 # ---------------------------------------------------------------------------
 
-@respx.mock
-def test_admissions_success_returns_live_result(monkeypatch):
+async def test_admissions_success_returns_live_result(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
 
-    respx.post("https://iam.cloud.ibm.com/identity/token").mock(
-        return_value=httpx.Response(
-            200,
-            json={"access_token": "tok-abc", "expires_in": 3600},
-        )
+    respx_mock.post(IAM_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
     )
-    respx.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
+    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
         return_value=httpx.Response(200, json={"run_id": "run-001"})
     )
-    respx.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-001").mock(
+    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-001").mock(
         return_value=httpx.Response(
             200,
-            json={
-                "status": "completed",
-                "output": {"result": "Strong pathway fit for Computer Science."},
-            },
+            json={"status": "completed", "output": {"result": "Strong pathway fit for Computer Science."}},
         )
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/recommendations/admissions",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
-        )
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
 
     assert response.status_code == 200
     body = response.json()
@@ -64,48 +76,32 @@ def test_admissions_success_returns_live_result(monkeypatch):
 # Cycles 2 & 3: fallback on failed / expired run
 # ---------------------------------------------------------------------------
 
-def _mock_iam_and_run(run_id: str, final_status: str) -> None:
-    respx.post("https://iam.cloud.ibm.com/identity/token").mock(
-        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
-    )
-    respx.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": run_id})
-    )
-    respx.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/{run_id}").mock(
-        return_value=httpx.Response(200, json={"status": final_status, "output": {}})
-    )
-
-
-@respx.mock
-def test_fallback_when_run_fails(monkeypatch):
+async def test_fallback_when_run_fails(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
-    _mock_iam_and_run("run-fail", "failed")
+    _mock_iam_and_run(respx_mock, "run-fail", "failed")
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/recommendations/admissions",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
-        )
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
 
     assert response.status_code == 200
     assert response.json()["source"] == "fallback"
     assert response.json()["stage"] == "admissions", "failed run must return admissions stage"
 
 
-@respx.mock
-def test_fallback_when_run_expires(monkeypatch):
+async def test_fallback_when_run_expires(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
-    _mock_iam_and_run("run-exp", "expired")
+    _mock_iam_and_run(respx_mock, "run-exp", "expired")
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/recommendations/admissions",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
-        )
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
 
     assert response.status_code == 200
     assert response.json()["source"] == "fallback"
@@ -116,29 +112,27 @@ def test_fallback_when_run_expires(monkeypatch):
 # Cycle 4: IAM token is fetched before the run call
 # ---------------------------------------------------------------------------
 
-@respx.mock
-def test_iam_token_fetched_exactly_once_per_request(monkeypatch):
+async def test_iam_token_fetched_exactly_once_per_request(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
 
-    iam_route = respx.post("https://iam.cloud.ibm.com/identity/token").mock(
+    iam_route = respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
     )
-    respx.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
+    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
         return_value=httpx.Response(200, json={"run_id": "run-iam"})
     )
-    respx.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-iam").mock(
+    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-iam").mock(
         return_value=httpx.Response(
             200, json={"status": "completed", "output": {"result": "Fit confirmed."}}
         )
     )
 
-    with TestClient(app) as client:
-        client.post(
-            "/api/recommendations/admissions",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
-        )
+    await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
 
     assert iam_route.called, "IAM token endpoint must be called"
     assert iam_route.call_count == 1
@@ -148,35 +142,30 @@ def test_iam_token_fetched_exactly_once_per_request(monkeypatch):
 # Cycle 5: stale token (within 5-min buffer) is refreshed
 # ---------------------------------------------------------------------------
 
-@respx.mock
-def test_iam_token_refreshed_when_near_expiry(monkeypatch):
-    import time
-
+async def test_iam_token_refreshed_when_near_expiry(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
 
-    # Token expires in 200 s — inside the 300 s refresh buffer
     iam_module._token = "stale-token"
     iam_module._expires_at = time.time() + 200
 
-    iam_route = respx.post("https://iam.cloud.ibm.com/identity/token").mock(
+    iam_route = respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "fresh-token", "expires_in": 3600})
     )
-    respx.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
+    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
         return_value=httpx.Response(200, json={"run_id": "run-refresh"})
     )
-    respx.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-refresh").mock(
+    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-refresh").mock(
         return_value=httpx.Response(
             200, json={"status": "completed", "output": {"result": "Refreshed."}}
         )
     )
 
-    with TestClient(app) as client:
-        client.post(
-            "/api/recommendations/admissions",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
-        )
+    await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
 
     assert iam_route.called, "IAM must be called to refresh a near-expiry token"
 
@@ -185,35 +174,30 @@ def test_iam_token_refreshed_when_near_expiry(monkeypatch):
 # Cycle 5b: valid token (well within expiry) is reused — no IAM call
 # ---------------------------------------------------------------------------
 
-@respx.mock
-def test_valid_token_is_reused_without_iam_call(monkeypatch):
-    import time
-
+async def test_valid_token_is_reused_without_iam_call(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
 
-    # Token still has 30 minutes — well outside the 300 s buffer
     iam_module._token = "cached-token"
     iam_module._expires_at = time.time() + 1800
 
-    iam_route = respx.post("https://iam.cloud.ibm.com/identity/token").mock(
+    iam_route = respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "new-token", "expires_in": 3600})
     )
-    respx.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
+    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
         return_value=httpx.Response(200, json={"run_id": "run-cached"})
     )
-    respx.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-cached").mock(
+    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-cached").mock(
         return_value=httpx.Response(
             200, json={"status": "completed", "output": {"result": "Cached token used."}}
         )
     )
 
-    with TestClient(app) as client:
-        client.post(
-            "/api/recommendations/admissions",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
-        )
+    await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
 
     assert not iam_route.called, "IAM must NOT be called when token is still valid"
 
@@ -222,12 +206,11 @@ def test_valid_token_is_reused_without_iam_call(monkeypatch):
 # Cycle 6: unknown stage returns 422
 # ---------------------------------------------------------------------------
 
-def test_unknown_stage_returns_422():
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/recommendations/nonexistent_stage",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "anything"},
-        )
+async def test_unknown_stage_returns_422(client):
+    response = await client.post(
+        "/api/recommendations/nonexistent_stage",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "anything"},
+    )
     assert response.status_code == 422
     assert "nonexistent_stage" in response.json()["detail"]
 
@@ -236,17 +219,16 @@ def test_unknown_stage_returns_422():
 # AC3: gateway polls until terminal status (in_progress → completed)
 # ---------------------------------------------------------------------------
 
-@respx.mock
-def test_gateway_polls_until_completed(monkeypatch):
+async def test_gateway_polls_until_completed(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
     monkeypatch.setattr(orchestrate_module, "POLL_INTERVAL", 0)
 
-    respx.post("https://iam.cloud.ibm.com/identity/token").mock(
+    respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
     )
-    respx.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
+    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
         return_value=httpx.Response(200, json={"run_id": "run-poll"})
     )
 
@@ -261,15 +243,14 @@ def test_gateway_polls_until_completed(monkeypatch):
             200, json={"status": "completed", "output": {"result": "Polling complete."}}
         )
 
-    respx.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-poll").mock(
+    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-poll").mock(
         side_effect=poll_side_effect
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/recommendations/admissions",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
-        )
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
 
     assert response.status_code == 200
     assert response.json()["source"] == "live"
@@ -283,47 +264,43 @@ def test_gateway_polls_until_completed(monkeypatch):
 _BRANDED_TERMS = {"run_id", "agent_id", "orchestrate", "ibm", "watson", "wxo", "instance_id"}
 
 
-@respx.mock
-def test_live_response_contains_no_ibm_branding(monkeypatch):
+async def test_live_response_contains_no_ibm_branding(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
 
-    respx.post("https://iam.cloud.ibm.com/identity/token").mock(
+    respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
     )
-    respx.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
+    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
         return_value=httpx.Response(200, json={"run_id": "run-brand"})
     )
-    respx.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-brand").mock(
+    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-brand").mock(
         return_value=httpx.Response(
             200, json={"status": "completed", "output": {"result": "Good fit."}}
         )
     )
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/recommendations/admissions",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
-        )
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
 
     body = response.json()
     leaked = {k for k in body if k.lower() in _BRANDED_TERMS}
     assert not leaked, f"Branded field(s) leaked into response: {leaked}"
 
 
-@respx.mock
-def test_fallback_response_contains_no_ibm_branding(monkeypatch):
+async def test_fallback_response_contains_no_ibm_branding(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
-    _mock_iam_and_run("run-brand-fb", "failed")
+    _mock_iam_and_run(respx_mock, "run-brand-fb", "failed")
 
-    with TestClient(app) as client:
-        response = client.post(
-            "/api/recommendations/admissions",
-            json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
-        )
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
 
     body = response.json()
     leaked = {k for k in body if k.lower() in _BRANDED_TERMS}

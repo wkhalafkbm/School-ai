@@ -2,7 +2,6 @@ import time
 
 import httpx
 import pytest
-import respx
 
 import app.gateway.iam as iam_module
 
@@ -22,11 +21,10 @@ def reset_token_cache():
 # Cycle 1: initial fetch — first call hits IAM and returns the token
 # ---------------------------------------------------------------------------
 
-@respx.mock
-async def test_initial_fetch_calls_iam_and_returns_token(monkeypatch):
+async def test_initial_fetch_calls_iam_and_returns_token(monkeypatch, respx_mock):
     monkeypatch.setenv("WXO_API_KEY", "test-key")
 
-    respx.post(IAM_URL).mock(
+    respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(
             200,
             json={"access_token": "tok-initial", "expires_in": 3600},
@@ -36,18 +34,17 @@ async def test_initial_fetch_calls_iam_and_returns_token(monkeypatch):
     token = await iam_module.get_token()
 
     assert token == "tok-initial"
-    assert respx.calls.call_count == 1
+    assert respx_mock.calls.call_count == 1
 
 
 # ---------------------------------------------------------------------------
 # Cycle 2: cache hit — second call returns same token, no new HTTP request
 # ---------------------------------------------------------------------------
 
-@respx.mock
-async def test_second_call_returns_cached_token_without_http_request(monkeypatch):
+async def test_second_call_returns_cached_token_without_http_request(monkeypatch, respx_mock):
     monkeypatch.setenv("WXO_API_KEY", "test-key")
 
-    iam_route = respx.post(IAM_URL).mock(
+    iam_route = respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(
             200,
             json={"access_token": "tok-cached", "expires_in": 3600},
@@ -65,15 +62,14 @@ async def test_second_call_returns_cached_token_without_http_request(monkeypatch
 # Cycle 3: refresh trigger — token within 5-min buffer is replaced
 # ---------------------------------------------------------------------------
 
-@respx.mock
-async def test_token_near_expiry_is_refreshed(monkeypatch):
+async def test_token_near_expiry_is_refreshed(monkeypatch, respx_mock):
     monkeypatch.setenv("WXO_API_KEY", "test-key")
 
     # Seed a stale token — expires in 200 s (inside the 300 s refresh window)
     iam_module._token = "stale-tok"
     iam_module._expires_at = time.time() + 200
 
-    iam_route = respx.post(IAM_URL).mock(
+    iam_route = respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(
             200,
             json={"access_token": "fresh-tok", "expires_in": 3600},
@@ -86,15 +82,14 @@ async def test_token_near_expiry_is_refreshed(monkeypatch):
     assert iam_route.call_count == 1, "IAM must be called to refresh a near-expiry token"
 
 
-@respx.mock
-async def test_token_well_within_expiry_is_not_refreshed(monkeypatch):
+async def test_token_well_within_expiry_is_not_refreshed(monkeypatch, respx_mock):
     monkeypatch.setenv("WXO_API_KEY", "test-key")
 
     # Seed a valid token — 30 minutes remaining (outside the 300 s buffer)
     iam_module._token = "valid-tok"
     iam_module._expires_at = time.time() + 1800
 
-    iam_route = respx.post(IAM_URL).mock(
+    iam_route = respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "new-tok", "expires_in": 3600})
     )
 
