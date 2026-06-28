@@ -7,7 +7,6 @@ const PAGES = [
   { label: "Academic Risk", path: "../app/academic-risk/page" },
   { label: "Progression", path: "../app/progression/page" },
   { label: "Career & Alumni", path: "../app/career-alumni/page" },
-  { label: "Workflow Activity", path: "../app/workflow-activity/page" },
 ];
 
 describe("Placeholder pages", () => {
