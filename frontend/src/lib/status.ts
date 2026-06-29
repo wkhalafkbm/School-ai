@@ -24,13 +24,15 @@ export type WorkflowStatus =
   | "in_progress"
   | "completed"
   | "overdue"
-  | "blocked";
+  | "blocked"
+  | "approved";
 
 export const WORKFLOW_STATUS_MAP: Record<WorkflowStatus, StatusCode> = {
   pending: "watch",
   in_review: "watch",
   in_progress: "on_track",
   completed: "on_track",
+  approved: "on_track",
   overdue: "urgent",
   blocked: "needs_attention",
 };
