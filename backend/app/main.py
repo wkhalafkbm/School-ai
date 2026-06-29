@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 
-from app.routers import admissions, overview, recommendations, workflows
+from app.routers import admissions, enrollment, overview, recommendations, workflows
 from app.routers import students, programs, courses, cohorts, faculty, alumni
 
 app = FastAPI(title="University AI Operating Center")
 app.include_router(admissions.router)
+app.include_router(enrollment.router)
 app.include_router(overview.router)
 app.include_router(recommendations.router)
 app.include_router(workflows.router)
