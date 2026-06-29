@@ -25,5 +25,6 @@
   { "id": "csh-024", "course_id": "crs-003", "course_code": "MATH101", "slo_id": "slo-009", "semester": "2024-Spring", "cohort_size": 36, "proficiency_rate": 0.667, "avg_score": 69.7, "data_source": "LMS" },
   { "id": "csh-025", "course_id": "crs-003", "course_code": "MATH101", "slo_id": "slo-007", "semester": "2024-Fall", "cohort_size": 38, "proficiency_rate": 0.737, "avg_score": 75.1, "data_source": "LMS" },
   { "id": "csh-026", "course_id": "crs-003", "course_code": "MATH101", "slo_id": "slo-008", "semester": "2024-Fall", "cohort_size": 38, "proficiency_rate": 0.632, "avg_score": 68.9, "data_source": "LMS" },
-  { "id": "csh-027", "course_id": "crs-003", "course_code": "MATH101", "slo_id": "slo-009", "semester": "2024-Fall", "cohort_size": 38, "proficiency_rate": 0.684, "avg_score": 71.3, "data_source": "LMS" }
+  { "id": "csh-027", "course_id": "crs-003", "course_code": "MATH101", "slo_id": "slo-009", "semester": "2024-Fall", "cohort_size": 38, "proficiency_rate": 0.684, "avg_score": 71.3, "data_source": "LMS" },
+  { "id": "csh-028", "course_id": "crs-005", "course_code": "CS302", "slo_id": "slo-015", "semester": "2024-Fall", "cohort_size": 27, "proficiency_rate": 0.41, "avg_score": 54.2, "data_source": "LMS" }
 ]

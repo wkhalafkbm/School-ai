@@ -12,5 +12,6 @@
   { "id": "slo-011", "course_id": "crs-004", "code": "CS301-SLO2", "description": "Students will prove algorithm correctness using mathematical induction", "bloom_level": "Evaluate", "assessment_method": "Written exam", "data_source": "LMS" },
   { "id": "slo-012", "course_id": "crs-006", "code": "CS401-SLO1", "description": "Students will produce software requirements specifications", "bloom_level": "Create", "assessment_method": "Group project", "data_source": "LMS" },
   { "id": "slo-013", "course_id": "crs-007", "code": "CS450-SLO1", "description": "Students will train and evaluate supervised learning models", "bloom_level": "Apply", "assessment_method": "Lab report", "data_source": "LMS" },
-  { "id": "slo-014", "course_id": "crs-009", "code": "CYB301-SLO1", "description": "Students will configure and test firewall rules", "bloom_level": "Apply", "assessment_method": "Lab exercise", "data_source": "LMS" }
+  { "id": "slo-014", "course_id": "crs-009", "code": "CYB301-SLO1", "description": "Students will configure and test firewall rules", "bloom_level": "Apply", "assessment_method": "Lab exercise", "data_source": "LMS" },
+  { "id": "slo-015", "course_id": "crs-005", "code": "CS302-SLO1", "description": "Students will explain process scheduling algorithms and memory management strategies", "bloom_level": "Understand", "assessment_method": "Written exam", "data_source": "LMS" }
 ]
