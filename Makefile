@@ -1,4 +1,4 @@
-.PHONY: dev stop test test-frontend migrate seed setup import-write-tools
+.PHONY: dev stop test test-api test-e2e test-frontend migrate seed setup import-write-tools
 
 setup:
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example — review before running."; fi
@@ -16,6 +16,12 @@ stop:
 
 test:
 	cd backend && ../.venv/bin/pytest -v
+
+test-api:
+	cd backend && ../.venv/bin/pytest -v -m "not e2e"
+
+test-e2e:
+	cd frontend && npx playwright test
 
 test-frontend:
 	cd frontend && npm test

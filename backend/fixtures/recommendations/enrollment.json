@@ -1,0 +1,5 @@
+{
+  "stage": "enrollment",
+  "result": "Student registration blockers identified: active financial hold and a schedule conflict between IS201 and MATH101-01. Recommend resolving financial hold with Finance Office and switching to MATH101-02 section before the add/drop deadline.",
+  "source": "fallback"
+}

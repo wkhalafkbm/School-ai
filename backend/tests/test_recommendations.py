@@ -305,3 +305,76 @@ async def test_fallback_response_contains_no_ibm_branding(monkeypatch, client, r
     body = response.json()
     leaked = {k for k in body if k.lower() in _BRANDED_TERMS}
     assert not leaked, f"Branded field(s) leaked into fallback response: {leaked}"
+
+
+# ---------------------------------------------------------------------------
+# AI Gateway fallback for all five recommendation moments (issue #20)
+# ---------------------------------------------------------------------------
+
+_FIVE_STAGES = [
+    ("enrollment", "AGENT_ID_ENROLLMENT"),
+    ("academic_risk_engagement", "AGENT_ID_ACADEMIC_RISK_ENGAGEMENT"),
+    ("progression", "AGENT_ID_PROGRESSION"),
+    ("career", "AGENT_ID_CAREER"),
+]
+
+
+@pytest.mark.parametrize("stage,env_var", _FIVE_STAGES)
+async def test_fallback_returns_fixture_response_for_stage(
+    stage, env_var, monkeypatch, client, respx_mock
+):
+    """Each recommendation stage returns a valid fallback fixture when Orchestrate is unavailable."""
+    agent_id = f"agent-{stage}-001"
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv(env_var, agent_id)
+
+    respx_mock.post(IAM_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+    )
+    respx_mock.post(f"{WXO_BASE}/agents/{agent_id}/runs").mock(
+        return_value=httpx.Response(200, json={"run_id": f"run-{stage}"})
+    )
+    respx_mock.get(f"{WXO_BASE}/agents/{agent_id}/runs/run-{stage}").mock(
+        return_value=httpx.Response(200, json={"status": "failed", "output": {}})
+    )
+
+    response = await client.post(
+        f"/api/recommendations/{stage}",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "recommend"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["stage"] == stage
+    assert body["source"] == "fallback"
+    assert body["result"], f"fallback result for {stage!r} must be non-empty"
+
+
+@pytest.mark.parametrize("stage,env_var", _FIVE_STAGES)
+async def test_fallback_result_contains_no_ibm_branding(
+    stage, env_var, monkeypatch, client, respx_mock
+):
+    agent_id = f"agent-{stage}-brand"
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv(env_var, agent_id)
+
+    respx_mock.post(IAM_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+    )
+    respx_mock.post(f"{WXO_BASE}/agents/{agent_id}/runs").mock(
+        return_value=httpx.Response(200, json={"run_id": f"run-brand-{stage}"})
+    )
+    respx_mock.get(f"{WXO_BASE}/agents/{agent_id}/runs/run-brand-{stage}").mock(
+        return_value=httpx.Response(200, json={"status": "failed", "output": {}})
+    )
+
+    response = await client.post(
+        f"/api/recommendations/{stage}",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "recommend"},
+    )
+
+    body = response.json()
+    leaked = {k for k in body if k.lower() in _BRANDED_TERMS}
+    assert not leaked, f"Stage {stage!r}: branded field(s) leaked: {leaked}"
