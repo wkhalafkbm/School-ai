@@ -378,3 +378,70 @@ async def test_fallback_result_contains_no_ibm_branding(
     body = response.json()
     leaked = {k for k in body if k.lower() in _BRANDED_TERMS}
     assert not leaked, f"Stage {stage!r}: branded field(s) leaked: {leaked}"
+
+
+# ---------------------------------------------------------------------------
+# AI_MODE routing
+# ---------------------------------------------------------------------------
+
+async def test_scripted_mode_returns_fallback_without_calling_iam(monkeypatch, client, respx_mock):
+    monkeypatch.setenv("AI_MODE", "scripted")
+    monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
+
+    iam_route = respx_mock.post(IAM_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok", "expires_in": 3600})
+    )
+
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source"] == "fallback"
+    assert not iam_route.called, "scripted mode must not contact IAM"
+
+
+async def test_hybrid_mode_returns_live_result_on_success(monkeypatch, client, respx_mock):
+    monkeypatch.setenv("AI_MODE", "hybrid")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
+
+    respx_mock.post(IAM_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+    )
+    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
+        return_value=httpx.Response(200, json={"run_id": "run-hybrid-ok"})
+    )
+    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-hybrid-ok").mock(
+        return_value=httpx.Response(
+            200, json={"status": "completed", "output": {"result": "Hybrid live result."}}
+        )
+    )
+
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["source"] == "live"
+    assert body["result"] == "Hybrid live result."
+
+
+async def test_hybrid_mode_falls_back_when_watsonx_fails(monkeypatch, client, respx_mock):
+    monkeypatch.setenv("AI_MODE", "hybrid")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
+    _mock_iam_and_run(respx_mock, "run-hybrid-fail", "failed")
+
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source"] == "fallback"
