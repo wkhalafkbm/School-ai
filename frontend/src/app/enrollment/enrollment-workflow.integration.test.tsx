@@ -5,7 +5,7 @@
  * activity page receives and displays.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, within, fireEvent, waitFor, cleanup } from "@testing-library/react";
 
 const MOCK_PROFILE = {
   stage_summary: {
@@ -100,8 +100,9 @@ describe("Enrollment → Workflow Activity integration", () => {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
 
-    // All items are enrollment stage
-    const stageLabels = screen.getAllByText("enrollment");
+    // All items are enrollment stage — scope to table rows to exclude filter dropdown
+    const table = screen.getByRole("table");
+    const stageLabels = within(table).getAllByText("enrollment");
     expect(stageLabels).toHaveLength(3);
   });
 });
