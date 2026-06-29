@@ -10,7 +10,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     setAuthenticated(sessionStorage.getItem("authenticated") === "true");
   }, []);
 
+  function handleLogin() {
+    setAuthenticated(true);
+  }
+
   if (authenticated === null) return null;
-  if (!authenticated) return <LoginForm />;
+  if (!authenticated) return <LoginForm onLogin={handleLogin} />;
   return <>{children}</>;
 }

@@ -1,13 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { getBrandingConfig } from "@/lib/brandingConfig";
 
-export default function LoginForm() {
+export default function LoginForm({ onLogin }: { onLogin?: () => void }) {
   const { name, subtitle, logoUrl } = getBrandingConfig();
 
-  const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
@@ -15,7 +13,7 @@ export default function LoginForm() {
     e.preventDefault();
     if (!username.trim() || !password.trim()) return;
     sessionStorage.setItem("authenticated", "true");
-    router.push("/");
+    onLogin?.();
   }
 
   return (
