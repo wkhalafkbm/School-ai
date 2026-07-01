@@ -2,6 +2,8 @@ openapi: 3.1.0
 info:
   title: University AI — Orchestrate Write Tools
   version: 1.0.0
+servers:
+  - url: https://mushily-twistable-simply.ngrok-free.dev
 paths:
   /api/workflows:
     post:

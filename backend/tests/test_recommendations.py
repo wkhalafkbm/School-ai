@@ -8,6 +8,7 @@ import app.gateway.orchestrate as orchestrate_module
 from app.main import app
 
 WXO_BASE = "https://wxo.example.com"
+RUNS_URL = f"{WXO_BASE}/v1/orchestrate/runs"
 AGENT_ADMISSIONS = "agent-admissions-001"
 IAM_URL = "https://iam.cloud.ibm.com/identity/token"
 
@@ -26,15 +27,34 @@ async def client():
         yield c
 
 
-def _mock_iam_and_run(router, run_id: str, final_status: str) -> None:
+def _completed_run_response(run_id: str, text: str) -> dict:
+    return {
+        "id": run_id,
+        "status": "completed",
+        "result": {
+            "data": {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"id": "1", "response_type": "text", "text": text}],
+                }
+            }
+        },
+    }
+
+
+def _mock_iam_and_run(router, run_id: str, final_status: str, result_text: str = "") -> None:
     router.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
     )
-    router.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
+    router.post(RUNS_URL).mock(
         return_value=httpx.Response(200, json={"run_id": run_id})
     )
-    router.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/{run_id}").mock(
-        return_value=httpx.Response(200, json={"status": final_status, "output": {}})
+    if final_status == "completed":
+        run_response = _completed_run_response(run_id, result_text)
+    else:
+        run_response = {"id": run_id, "status": final_status}
+    router.get(f"{RUNS_URL}/{run_id}").mock(
+        return_value=httpx.Response(200, json=run_response)
     )
 
 
@@ -47,18 +67,7 @@ async def test_admissions_success_returns_live_result(monkeypatch, client, respx
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
 
-    respx_mock.post(IAM_URL).mock(
-        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
-    )
-    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": "run-001"})
-    )
-    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-001").mock(
-        return_value=httpx.Response(
-            200,
-            json={"status": "completed", "output": {"result": "Strong pathway fit for Computer Science."}},
-        )
-    )
+    _mock_iam_and_run(respx_mock, "run-001", "completed", "Strong pathway fit for Computer Science.")
 
     response = await client.post(
         "/api/recommendations/admissions",
@@ -73,7 +82,7 @@ async def test_admissions_success_returns_live_result(monkeypatch, client, respx
 
 
 # ---------------------------------------------------------------------------
-# Cycles 2 & 3: fallback on failed / expired run
+# Cycles 2 & 3: fallback on failed / cancelled / expired run
 # ---------------------------------------------------------------------------
 
 async def test_fallback_when_run_fails(monkeypatch, client, respx_mock):
@@ -92,11 +101,35 @@ async def test_fallback_when_run_fails(monkeypatch, client, respx_mock):
     assert response.json()["stage"] == "admissions", "failed run must return admissions stage"
 
 
+async def test_fallback_when_run_is_cancelled(monkeypatch, client, respx_mock):
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
+    _mock_iam_and_run(respx_mock, "run-cancel", "cancelled")
+
+    response = await client.post(
+        "/api/recommendations/admissions",
+        json={"entity_id": "stu-001", "entity_type": "student", "action": "pathway_fit"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["source"] == "fallback"
+    assert response.json()["stage"] == "admissions"
+
+
 async def test_fallback_when_run_expires(monkeypatch, client, respx_mock):
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
-    _mock_iam_and_run(respx_mock, "run-exp", "expired")
+    monkeypatch.setattr(orchestrate_module, "POLL_INTERVAL", 0)
+
+    respx_mock.post(IAM_URL).mock(
+        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+    )
+    respx_mock.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-exp"}))
+    respx_mock.get(f"{RUNS_URL}/run-exp").mock(
+        return_value=httpx.Response(200, json={"id": "run-exp", "status": "running"})
+    )
 
     response = await client.post(
         "/api/recommendations/admissions",
@@ -120,13 +153,9 @@ async def test_iam_token_fetched_exactly_once_per_request(monkeypatch, client, r
     iam_route = respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
     )
-    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": "run-iam"})
-    )
-    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-iam").mock(
-        return_value=httpx.Response(
-            200, json={"status": "completed", "output": {"result": "Fit confirmed."}}
-        )
+    respx_mock.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-iam"}))
+    respx_mock.get(f"{RUNS_URL}/run-iam").mock(
+        return_value=httpx.Response(200, json=_completed_run_response("run-iam", "Fit confirmed."))
     )
 
     await client.post(
@@ -153,13 +182,9 @@ async def test_iam_token_refreshed_when_near_expiry(monkeypatch, client, respx_m
     iam_route = respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "fresh-token", "expires_in": 3600})
     )
-    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": "run-refresh"})
-    )
-    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-refresh").mock(
-        return_value=httpx.Response(
-            200, json={"status": "completed", "output": {"result": "Refreshed."}}
-        )
+    respx_mock.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-refresh"}))
+    respx_mock.get(f"{RUNS_URL}/run-refresh").mock(
+        return_value=httpx.Response(200, json=_completed_run_response("run-refresh", "Refreshed."))
     )
 
     await client.post(
@@ -185,13 +210,9 @@ async def test_valid_token_is_reused_without_iam_call(monkeypatch, client, respx
     iam_route = respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "new-token", "expires_in": 3600})
     )
-    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": "run-cached"})
-    )
-    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-cached").mock(
-        return_value=httpx.Response(
-            200, json={"status": "completed", "output": {"result": "Cached token used."}}
-        )
+    respx_mock.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-cached"}))
+    respx_mock.get(f"{RUNS_URL}/run-cached").mock(
+        return_value=httpx.Response(200, json=_completed_run_response("run-cached", "Cached token used."))
     )
 
     await client.post(
@@ -216,7 +237,7 @@ async def test_unknown_stage_returns_422(client):
 
 
 # ---------------------------------------------------------------------------
-# AC3: gateway polls until terminal status (in_progress → completed)
+# AC3: gateway polls until terminal status (pending/running → completed)
 # ---------------------------------------------------------------------------
 
 async def test_gateway_polls_until_completed(monkeypatch, client, respx_mock):
@@ -228,9 +249,7 @@ async def test_gateway_polls_until_completed(monkeypatch, client, respx_mock):
     respx_mock.post(IAM_URL).mock(
         return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
     )
-    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": "run-poll"})
-    )
+    respx_mock.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-poll"}))
 
     _poll_count = 0
 
@@ -238,14 +257,10 @@ async def test_gateway_polls_until_completed(monkeypatch, client, respx_mock):
         nonlocal _poll_count
         _poll_count += 1
         if _poll_count < 3:
-            return httpx.Response(200, json={"status": "in_progress", "output": {}})
-        return httpx.Response(
-            200, json={"status": "completed", "output": {"result": "Polling complete."}}
-        )
+            return httpx.Response(200, json={"id": "run-poll", "status": "running"})
+        return httpx.Response(200, json=_completed_run_response("run-poll", "Polling complete."))
 
-    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-poll").mock(
-        side_effect=poll_side_effect
-    )
+    respx_mock.get(f"{RUNS_URL}/run-poll").mock(side_effect=poll_side_effect)
 
     response = await client.post(
         "/api/recommendations/admissions",
@@ -254,7 +269,7 @@ async def test_gateway_polls_until_completed(monkeypatch, client, respx_mock):
 
     assert response.status_code == 200
     assert response.json()["source"] == "live"
-    assert _poll_count == 3, f"Expected 3 polls (2 in_progress + 1 completed), got {_poll_count}"
+    assert _poll_count == 3, f"Expected 3 polls (2 running + 1 completed), got {_poll_count}"
 
 
 # ---------------------------------------------------------------------------
@@ -268,18 +283,7 @@ async def test_live_response_contains_no_ibm_branding(monkeypatch, client, respx
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
-
-    respx_mock.post(IAM_URL).mock(
-        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
-    )
-    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": "run-brand"})
-    )
-    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-brand").mock(
-        return_value=httpx.Response(
-            200, json={"status": "completed", "output": {"result": "Good fit."}}
-        )
-    )
+    _mock_iam_and_run(respx_mock, "run-brand", "completed", "Good fit.")
 
     response = await client.post(
         "/api/recommendations/admissions",
@@ -328,16 +332,7 @@ async def test_fallback_returns_fixture_response_for_stage(
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv(env_var, agent_id)
-
-    respx_mock.post(IAM_URL).mock(
-        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
-    )
-    respx_mock.post(f"{WXO_BASE}/agents/{agent_id}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": f"run-{stage}"})
-    )
-    respx_mock.get(f"{WXO_BASE}/agents/{agent_id}/runs/run-{stage}").mock(
-        return_value=httpx.Response(200, json={"status": "failed", "output": {}})
-    )
+    _mock_iam_and_run(respx_mock, f"run-{stage}", "failed")
 
     response = await client.post(
         f"/api/recommendations/{stage}",
@@ -359,16 +354,7 @@ async def test_fallback_result_contains_no_ibm_branding(
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv(env_var, agent_id)
-
-    respx_mock.post(IAM_URL).mock(
-        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
-    )
-    respx_mock.post(f"{WXO_BASE}/agents/{agent_id}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": f"run-brand-{stage}"})
-    )
-    respx_mock.get(f"{WXO_BASE}/agents/{agent_id}/runs/run-brand-{stage}").mock(
-        return_value=httpx.Response(200, json={"status": "failed", "output": {}})
-    )
+    _mock_iam_and_run(respx_mock, f"run-brand-{stage}", "failed")
 
     response = await client.post(
         f"/api/recommendations/{stage}",
@@ -407,18 +393,7 @@ async def test_hybrid_mode_returns_live_result_on_success(monkeypatch, client, r
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_ADMISSIONS", AGENT_ADMISSIONS)
-
-    respx_mock.post(IAM_URL).mock(
-        return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
-    )
-    respx_mock.post(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs").mock(
-        return_value=httpx.Response(200, json={"run_id": "run-hybrid-ok"})
-    )
-    respx_mock.get(f"{WXO_BASE}/agents/{AGENT_ADMISSIONS}/runs/run-hybrid-ok").mock(
-        return_value=httpx.Response(
-            200, json={"status": "completed", "output": {"result": "Hybrid live result."}}
-        )
-    )
+    _mock_iam_and_run(respx_mock, "run-hybrid-ok", "completed", "Hybrid live result.")
 
     response = await client.post(
         "/api/recommendations/admissions",
