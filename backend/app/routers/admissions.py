@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Depends
+import os
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.gateway import iam, orchestrate
+from app.gateway.config import get_agent_id
 from app.status import StatusCode
 
 router = APIRouter(prefix="/api/admissions", tags=["admissions"])
@@ -23,8 +28,21 @@ def _admissions_health(pending: int, total: int) -> str:
     return StatusCode.urgent
 
 
+async def _live_rationale(payload: dict) -> str | None:
+    try:
+        agent_id = get_agent_id("admissions")
+        token = await iam.get_token()
+        run_id = await orchestrate.start_run(agent_id, token, payload)
+        run = await orchestrate.poll_run(agent_id, run_id, token)
+    except (HTTPException, KeyError, httpx.HTTPError):
+        return None
+    if run["status"] != "completed":
+        return None
+    return run["output"]["result"]
+
+
 @router.get("/profile")
-def admissions_profile(db: Session = Depends(get_db)):
+async def admissions_profile(db: Session = Depends(get_db)):
     # --- stage summary ---
     applicant_count = db.execute(
         text("SELECT COUNT(*) FROM students WHERE status = 'applicant'")
@@ -90,6 +108,11 @@ def admissions_profile(db: Session = Depends(get_db)):
         "Sponsorship eligibility confirmed through KFAS. "
         f"Historical cohort of {cohort_size} similar profiles shows {on_track_pct}% on-track graduation rate."
     )
+
+    if os.getenv("AI_MODE", "live") != "scripted":
+        live_rationale = await _live_rationale({"student_id": STUDENT_ID})
+        if live_rationale:
+            rationale = live_rationale
 
     return {
         "stage_summary": {
