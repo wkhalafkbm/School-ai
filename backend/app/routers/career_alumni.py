@@ -1,17 +1,35 @@
-from fastapi import APIRouter, Depends
+import os
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.evidence import build_evidence
+from app.gateway import iam, orchestrate
+from app.gateway.config import get_agent_id
 
 router = APIRouter(prefix="/api/career-alumni", tags=["career-alumni"])
 
 STUDENT_ID = "stu-005"
 
 
+async def _live_rationale(payload: dict) -> str | None:
+    try:
+        agent_id = get_agent_id("career")
+        token = await iam.get_token()
+        run_id = await orchestrate.start_run(agent_id, token, payload)
+        run = await orchestrate.poll_run(agent_id, run_id, token)
+    except (HTTPException, KeyError, httpx.HTTPError):
+        return None
+    if run["status"] != "completed":
+        return None
+    return run["output"]["result"]
+
+
 @router.get("/profile")
-def career_alumni_profile(db: Session = Depends(get_db)):
+async def career_alumni_profile(db: Session = Depends(get_db)):
     # --- stage summary: graduate employment outcomes ---
     outcome_rows = db.execute(
         text("""
@@ -154,6 +172,47 @@ def career_alumni_profile(db: Session = Depends(get_db)):
         else None
     )
 
+    electives = [
+        {
+            "course_code": "CS410",
+            "course_name": "Cloud Computing & Distributed Systems",
+            "rationale": (
+                "Directly addresses the cloud infrastructure gap required "
+                "for senior engineering roles in FinTech"
+            ),
+        },
+        {
+            "course_code": "CS420",
+            "course_name": "Advanced System Design",
+            "rationale": (
+                "Builds system design skills assessed in technical interviews "
+                "at target companies including Boubyan Bank and NBK Digital"
+            ),
+        },
+    ]
+    internships = [
+        {
+            "company": "NBK Digital",
+            "industry": "FinTech",
+            "target_semester": "Spring 2025",
+            "rationale": (
+                "Matches target industry and provides hands-on FinTech "
+                "engineering experience before graduation"
+            ),
+        },
+    ]
+
+    if os.getenv("AI_MODE", "live") != "scripted":
+        live_rationale = await _live_rationale(
+            {
+                "student_id": STUDENT_ID,
+                "electives": electives,
+                "internships": internships,
+            }
+        )
+        if live_rationale:
+            career_pathway_recommendation["rationale"] = live_rationale
+
     return {
         "stage_summary": {
             "health": "opportunity",
@@ -192,35 +251,8 @@ def career_alumni_profile(db: Session = Depends(get_db)):
             },
         ],
         "recommendations": {
-            "electives": [
-                {
-                    "course_code": "CS410",
-                    "course_name": "Cloud Computing & Distributed Systems",
-                    "rationale": (
-                        "Directly addresses the cloud infrastructure gap required "
-                        "for senior engineering roles in FinTech"
-                    ),
-                },
-                {
-                    "course_code": "CS420",
-                    "course_name": "Advanced System Design",
-                    "rationale": (
-                        "Builds system design skills assessed in technical interviews "
-                        "at target companies including Boubyan Bank and NBK Digital"
-                    ),
-                },
-            ],
-            "internships": [
-                {
-                    "company": "NBK Digital",
-                    "industry": "FinTech",
-                    "target_semester": "Spring 2025",
-                    "rationale": (
-                        "Matches target industry and provides hands-on FinTech "
-                        "engineering experience before graduation"
-                    ),
-                },
-            ],
+            "electives": electives,
+            "internships": internships,
         },
         "alumni_mentor_match": alumni_mentor_match,
         "outcomes_feedback_loop": {
