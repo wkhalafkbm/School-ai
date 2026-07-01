@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends
+import os
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.evidence import build_evidence
+from app.gateway import iam, orchestrate
+from app.gateway.config import get_agent_id
 from app.status import StatusCode
 
 router = APIRouter(prefix="/api/academic-risk", tags=["academic-risk"])
@@ -38,8 +43,21 @@ def _attrition_risk(avg_login: float, avg_submission: float) -> str:
     return StatusCode.watch
 
 
+async def _live_rationale(stage: str, payload: dict) -> str | None:
+    try:
+        agent_id = get_agent_id(stage)
+        token = await iam.get_token()
+        run_id = await orchestrate.start_run(agent_id, token, payload)
+        run = await orchestrate.poll_run(agent_id, run_id, token)
+    except (HTTPException, KeyError, httpx.HTTPError):
+        return None
+    if run["status"] != "completed":
+        return None
+    return run["output"]["result"]
+
+
 @router.get("/profile")
-def academic_risk_profile(db: Session = Depends(get_db)):
+async def academic_risk_profile(db: Session = Depends(get_db)):
     # --- stage summary: count students by worst LMS risk flag ---
     counts_row = db.execute(
         text("""
@@ -204,6 +222,45 @@ def academic_risk_profile(db: Session = Depends(get_db)):
         else None
     )
 
+    # --- engagement & early risk detection rationale ---
+    engagement_rationale = (
+        f"Fahad averages {avg_login:.1f} LMS logins and a "
+        f"{avg_submission * 100:.0f}% assignment submission rate over the last 30 days, "
+        f"placing attrition risk at '{dropout_risk}'. Early outreach is recommended before "
+        "engagement drops further."
+    )
+
+    # --- student support & case management rationale ---
+    support_rationale = (
+        f"Fahad's GPA of {float(student_row.gpa):.2f} places academic failure risk at "
+        f"'{failure_risk}'. "
+        + (
+            f"A sponsor escalation is already in progress ({sponsor_escalation['status']}), "
+            f"owned by {sponsor_escalation['owner_name']}."
+            if sponsor_escalation
+            else "No sponsor escalation is currently open; case management should monitor for threshold triggers."
+        )
+    )
+
+    if os.getenv("AI_MODE", "live") != "scripted":
+        live_intervention_rationale = await _live_rationale(
+            "academic_risk_intervention", {"student_id": STUDENT_ID}
+        )
+        if live_intervention_rationale:
+            intervention_plan["rationale"] = live_intervention_rationale
+
+        live_engagement_rationale = await _live_rationale(
+            "academic_risk_engagement", {"student_id": STUDENT_ID}
+        )
+        if live_engagement_rationale:
+            engagement_rationale = live_engagement_rationale
+
+        live_support_rationale = await _live_rationale(
+            "academic_risk_support", {"student_id": STUDENT_ID}
+        )
+        if live_support_rationale:
+            support_rationale = live_support_rationale
+
     return {
         "stage_summary": {
             "health": _academic_risk_health(urgent_count, needs_attention_count, watch_count),
@@ -223,4 +280,6 @@ def academic_risk_profile(db: Session = Depends(get_db)):
         "cohort_slo_pattern": cohort_slo_pattern,
         "intervention_plan": intervention_plan,
         "sponsor_escalation": sponsor_escalation,
+        "engagement_assessment": {"rationale": engagement_rationale},
+        "support_assessment": {"rationale": support_rationale},
     }

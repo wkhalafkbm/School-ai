@@ -34,6 +34,10 @@ interface SponsorEscalation {
   created_date: string;
 }
 
+interface RationaleAssessment {
+  rationale: string;
+}
+
 interface AcademicRiskProfile {
   stage_summary: {
     health: StatusCode;
@@ -53,6 +57,8 @@ interface AcademicRiskProfile {
   cohort_slo_pattern: SloPatternItem[];
   intervention_plan: InterventionPlan;
   sponsor_escalation: SponsorEscalation | null;
+  engagement_assessment: RationaleAssessment;
+  support_assessment: RationaleAssessment;
 }
 
 async function fetchProfile(): Promise<AcademicRiskProfile> {
@@ -91,6 +97,8 @@ export default async function AcademicRiskPage() {
     cohort_slo_pattern,
     intervention_plan,
     sponsor_escalation,
+    engagement_assessment,
+    support_assessment,
   } = await fetchProfile();
 
   return (
@@ -168,6 +176,14 @@ export default async function AcademicRiskPage() {
         </table>
       </section>
 
+      {/* Engagement & early risk detection assessment */}
+      <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 text-base font-semibold text-gray-900">
+          Engagement &amp; Early Risk Assessment
+        </h2>
+        <p className="text-sm text-gray-600">{engagement_assessment.rationale}</p>
+      </section>
+
       {/* AI-generated intervention plan */}
       <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
         <div className="mb-3 flex items-center gap-3">
@@ -222,6 +238,14 @@ export default async function AcademicRiskPage() {
           </div>
         </section>
       )}
+
+      {/* Student support & case management assessment */}
+      <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 text-base font-semibold text-gray-900">
+          Student Support &amp; Case Management
+        </h2>
+        <p className="text-sm text-gray-600">{support_assessment.rationale}</p>
+      </section>
 
       {/* Action */}
       <div className="flex justify-end">

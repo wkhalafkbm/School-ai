@@ -73,6 +73,14 @@ const MOCK_PROFILE = {
     status: "pending",
     created_date: "2024-10-17",
   },
+  engagement_assessment: {
+    rationale:
+      "Fahad shows low LMS login frequency and a below-average assignment submission rate over the last 30 days. Early outreach is recommended before engagement drops further.",
+  },
+  support_assessment: {
+    rationale:
+      "Fahad's current standing warrants continued case oversight. Coordinate with the assigned advisor to track progress toward recovery.",
+  },
 };
 
 function mockFetch(data: unknown) {

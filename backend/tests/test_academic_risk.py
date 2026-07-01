@@ -3,11 +3,15 @@
 import os
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import app.gateway.iam as iam_module
+import app.gateway.orchestrate as orchestrate_module
 from app.main import app
 from app.database import get_db
 
@@ -16,6 +20,20 @@ TEST_DATABASE_URL = os.getenv(
     "postgresql://waleedkhalaf@/school_ai_test?host=/tmp",
 )
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+
+WXO_BASE = "https://wxo.example.com"
+RUNS_URL = f"{WXO_BASE}/v1/orchestrate/runs"
+IAM_URL = "https://iam.cloud.ibm.com/identity/token"
+AGENT_ENGAGEMENT = "agent-academic-risk-engagement-001"
+AGENT_INTERVENTION = "agent-academic-risk-intervention-001"
+AGENT_SUPPORT = "agent-academic-risk-support-001"
+
+
+@pytest.fixture(autouse=True)
+def reset_iam_token():
+    iam_module._token = None
+    iam_module._expires_at = 0.0
+    yield
 
 
 @pytest.fixture(scope="module")
@@ -316,3 +334,261 @@ def test_approved_item_appears_in_workflow_list(client):
     all_items = client.get("/api/workflows").json()
     all_ids = {item["id"] for item in all_items}
     assert created_id in all_ids, f"Created item {created_id} not found in workflow list"
+
+
+# ---------------------------------------------------------------------------
+# Issue #29 — live watsonx Orchestrate agent rationales, with scripted fallback
+# ---------------------------------------------------------------------------
+
+# Cycle 9 — tracer bullet: engagement_assessment and support_assessment exist
+# with computed rationale text, even before any live wiring.
+
+def test_engagement_assessment_has_computed_rationale(client):
+    data = client.get("/api/academic-risk/profile").json()
+    assert "engagement_assessment" in data
+    rationale = data["engagement_assessment"]["rationale"]
+    assert len(rationale) > 20
+
+
+def test_support_assessment_has_computed_rationale(client):
+    data = client.get("/api/academic-risk/profile").json()
+    assert "support_assessment" in data
+    rationale = data["support_assessment"]["rationale"]
+    assert len(rationale) > 20
+
+
+def _completed_run_response(run_id: str, text: str) -> dict:
+    return {
+        "id": run_id,
+        "status": "completed",
+        "result": {
+            "data": {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"id": "1", "response_type": "text", "text": text}],
+                }
+            }
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# Cycle 10 — intervention agent: live success overrides intervention_plan.rationale
+# ---------------------------------------------------------------------------
+
+def test_intervention_rationale_uses_live_agent_result_when_run_completes(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", AGENT_INTERVENTION)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", raising=False)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-intervention"}))
+        router.get(f"{RUNS_URL}/run-intervention").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-intervention", "Live agent: schedule tutoring now.")
+            )
+        )
+
+        plan = client.get("/api/academic-risk/profile").json()["intervention_plan"]
+
+    assert plan["rationale"] == "Live agent: schedule tutoring now."
+
+
+def test_intervention_rationale_falls_back_when_run_fails(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", AGENT_INTERVENTION)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", raising=False)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-intervention-fail"}))
+        router.get(f"{RUNS_URL}/run-intervention-fail").mock(
+            return_value=httpx.Response(200, json={"id": "run-intervention-fail", "status": "failed"})
+        )
+
+        plan = client.get("/api/academic-risk/profile").json()["intervention_plan"]
+
+    assert len(plan["rationale"]) > 20
+    assert plan["rationale"] != "Live agent: schedule tutoring now."
+
+
+# ---------------------------------------------------------------------------
+# Cycle 11 — engagement agent: live success / live failure falls back
+# ---------------------------------------------------------------------------
+
+def test_engagement_rationale_uses_live_agent_result_when_run_completes(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", AGENT_ENGAGEMENT)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", raising=False)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-engagement"}))
+        router.get(f"{RUNS_URL}/run-engagement").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-engagement", "Live agent: urgent outreach needed.")
+            )
+        )
+
+        data = client.get("/api/academic-risk/profile").json()
+
+    assert data["engagement_assessment"]["rationale"] == "Live agent: urgent outreach needed."
+
+
+def test_engagement_rationale_falls_back_when_run_fails(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", AGENT_ENGAGEMENT)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", raising=False)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-engagement-fail"}))
+        router.get(f"{RUNS_URL}/run-engagement-fail").mock(
+            return_value=httpx.Response(200, json={"id": "run-engagement-fail", "status": "failed"})
+        )
+
+        data = client.get("/api/academic-risk/profile").json()
+
+    assert "Fahad averages" in data["engagement_assessment"]["rationale"]
+
+
+# ---------------------------------------------------------------------------
+# Cycle 12 — support agent: live success / live failure falls back
+# ---------------------------------------------------------------------------
+
+def test_support_rationale_uses_live_agent_result_when_run_completes(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", AGENT_SUPPORT)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", raising=False)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-support"}))
+        router.get(f"{RUNS_URL}/run-support").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-support", "Live agent: initiate welfare check.")
+            )
+        )
+
+        data = client.get("/api/academic-risk/profile").json()
+
+    assert data["support_assessment"]["rationale"] == "Live agent: initiate welfare check."
+
+
+def test_support_rationale_falls_back_when_run_fails(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", AGENT_SUPPORT)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", raising=False)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-support-fail"}))
+        router.get(f"{RUNS_URL}/run-support-fail").mock(
+            return_value=httpx.Response(200, json={"id": "run-support-fail", "status": "failed"})
+        )
+
+        data = client.get("/api/academic-risk/profile").json()
+
+    assert "GPA of" in data["support_assessment"]["rationale"]
+
+
+# ---------------------------------------------------------------------------
+# Cycle 13 — one agent failing does not blank the other two live results
+# ---------------------------------------------------------------------------
+
+def test_one_agent_failing_does_not_blank_the_others_live_result(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", AGENT_INTERVENTION)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", AGENT_ENGAGEMENT)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", AGENT_SUPPORT)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_INTERVENTION).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-intervention-fail-2"})
+        )
+        router.get(f"{RUNS_URL}/run-intervention-fail-2").mock(
+            return_value=httpx.Response(200, json={"id": "run-intervention-fail-2", "status": "failed"})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_ENGAGEMENT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-engagement-ok"})
+        )
+        router.get(f"{RUNS_URL}/run-engagement-ok").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-engagement-ok", "Live agent: urgent outreach needed.")
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_SUPPORT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-support-ok"})
+        )
+        router.get(f"{RUNS_URL}/run-support-ok").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-support-ok", "Live agent: initiate welfare check.")
+            )
+        )
+
+        data = client.get("/api/academic-risk/profile").json()
+
+    assert len(data["intervention_plan"]["rationale"]) > 20
+    assert data["intervention_plan"]["rationale"] != "Live agent: schedule tutoring now."
+    assert data["engagement_assessment"]["rationale"] == "Live agent: urgent outreach needed."
+    assert data["support_assessment"]["rationale"] == "Live agent: initiate welfare check."
+
+
+# ---------------------------------------------------------------------------
+# Cycle 14 — scripted mode never contacts Orchestrate
+# ---------------------------------------------------------------------------
+
+def test_scripted_mode_never_contacts_orchestrate_for_academic_risk(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "scripted")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", AGENT_INTERVENTION)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", AGENT_ENGAGEMENT)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", AGENT_SUPPORT)
+
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        iam_route = router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        data = client.get("/api/academic-risk/profile").json()
+
+    assert not iam_route.called, "scripted mode must not contact IAM/Orchestrate"
+    assert len(data["intervention_plan"]["rationale"]) > 20
+    assert "Fahad averages" in data["engagement_assessment"]["rationale"]
+    assert "GPA of" in data["support_assessment"]["rationale"]
