@@ -3,11 +3,15 @@
 import os
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import app.gateway.iam as iam_module
+import app.gateway.orchestrate as orchestrate_module
 from app.main import app
 from app.database import get_db
 
@@ -16,6 +20,18 @@ TEST_DATABASE_URL = os.getenv(
     "postgresql://waleedkhalaf@/school_ai_test?host=/tmp",
 )
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+
+WXO_BASE = "https://wxo.example.com"
+RUNS_URL = f"{WXO_BASE}/v1/orchestrate/runs"
+IAM_URL = "https://iam.cloud.ibm.com/identity/token"
+AGENT_PROGRESSION = "agent-progression-001"
+
+
+@pytest.fixture(autouse=True)
+def reset_iam_token():
+    iam_module._token = None
+    iam_module._expires_at = 0.0
+    yield
 
 
 @pytest.fixture(scope="module")
@@ -365,3 +381,111 @@ def test_approved_plan_update_appears_in_workflow_list(client):
     all_items = client.get("/api/workflows").json()
     all_ids = {item["id"] for item in all_items}
     assert created_id in all_ids, f"Created item {created_id} not found in workflow list"
+
+
+# ---------------------------------------------------------------------------
+# Issue #30 — live watsonx Orchestrate agent rationale, with scripted fallback
+# ---------------------------------------------------------------------------
+
+def _completed_run_response(run_id: str, text: str) -> dict:
+    return {
+        "id": run_id,
+        "status": "completed",
+        "result": {
+            "data": {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"id": "1", "response_type": "text", "text": text}],
+                }
+            }
+        },
+    }
+
+
+def test_graduation_risk_summary_uses_live_agent_rationale_when_run_completes(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_PROGRESSION", AGENT_PROGRESSION)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-001"}))
+        router.get(f"{RUNS_URL}/run-001").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-001", "Live agent: graduation on track with plan update.")
+            )
+        )
+
+        summary = client.get("/api/progression/profile").json()["graduation_risk_summary"]
+
+    assert summary["rationale"] == "Live agent: graduation on track with plan update."
+
+
+def test_graduation_risk_summary_falls_back_to_computed_rationale_when_run_fails(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_PROGRESSION", AGENT_PROGRESSION)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-fail"}))
+        router.get(f"{RUNS_URL}/run-fail").mock(
+            return_value=httpx.Response(200, json={"id": "run-fail", "status": "failed"})
+        )
+
+        summary = client.get("/api/progression/profile").json()["graduation_risk_summary"]
+
+    assert "LMS engagement data is unavailable for this student" in summary["rationale"]
+
+
+def test_graduation_risk_summary_falls_back_to_computed_rationale_when_run_times_out(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_PROGRESSION", AGENT_PROGRESSION)
+    monkeypatch.setattr(orchestrate_module, "POLL_INTERVAL", 0)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-timeout"}))
+        router.get(f"{RUNS_URL}/run-timeout").mock(
+            return_value=httpx.Response(200, json={"id": "run-timeout", "status": "running"})
+        )
+
+        summary = client.get("/api/progression/profile").json()["graduation_risk_summary"]
+
+    assert "LMS engagement data is unavailable for this student" in summary["rationale"]
+
+
+def test_scripted_mode_never_contacts_orchestrate_for_progression(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "scripted")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_PROGRESSION", AGENT_PROGRESSION)
+
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        iam_route = router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        summary = client.get("/api/progression/profile").json()["graduation_risk_summary"]
+
+    assert not iam_route.called, "scripted mode must not contact IAM/Orchestrate"
+    assert "LMS engagement data is unavailable for this student" in summary["rationale"]
+
+
+def test_graduation_risk_summary_falls_back_when_ai_mode_live_but_orchestrate_unconfigured(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.delenv("WXO_API_KEY", raising=False)
+    monkeypatch.delenv("AGENT_ID_PROGRESSION", raising=False)
+
+    summary = client.get("/api/progression/profile").json()["graduation_risk_summary"]
+
+    assert "LMS engagement data is unavailable for this student" in summary["rationale"]

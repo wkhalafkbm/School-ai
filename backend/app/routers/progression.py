@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends
+import os
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.evidence import build_evidence
+from app.gateway import iam, orchestrate
+from app.gateway.config import get_agent_id
 from app.status import StatusCode
 
 router = APIRouter(prefix="/api/progression", tags=["progression"])
@@ -27,8 +32,21 @@ def _progression_health(at_risk: int, total: int) -> str:
     return StatusCode.on_track
 
 
+async def _live_rationale(payload: dict) -> str | None:
+    try:
+        agent_id = get_agent_id("progression")
+        token = await iam.get_token()
+        run_id = await orchestrate.start_run(agent_id, token, payload)
+        run = await orchestrate.poll_run(agent_id, run_id, token)
+    except (HTTPException, KeyError, httpx.HTTPError):
+        return None
+    if run["status"] != "completed":
+        return None
+    return run["output"]["result"]
+
+
 @router.get("/profile")
-def progression_profile(db: Session = Depends(get_db)):
+async def progression_profile(db: Session = Depends(get_db)):
     # --- stage summary: on_track vs at_risk graduation counts ---
     counts_row = db.execute(
         text("""
@@ -248,6 +266,11 @@ def progression_profile(db: Session = Depends(get_db)):
         if plan_item_row
         else None
     )
+
+    if os.getenv("AI_MODE", "live") != "scripted":
+        live_rationale = await _live_rationale({"student_id": STUDENT_ID})
+        if live_rationale:
+            graduation_risk_summary["rationale"] = live_rationale
 
     return {
         "stage_summary": {
