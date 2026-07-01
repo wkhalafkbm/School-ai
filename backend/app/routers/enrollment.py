@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Depends
+import os
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.gateway import iam, orchestrate
+from app.gateway.config import get_agent_id
 from app.status import StatusCode
 
 router = APIRouter(prefix="/api/enrollment", tags=["enrollment"])
@@ -41,8 +46,21 @@ def _sections_overlap(a: dict, b: dict) -> bool:
     return a_start < b_end and b_start < a_end
 
 
+async def _live_rationale(payload: dict) -> str | None:
+    try:
+        agent_id = get_agent_id("enrollment")
+        token = await iam.get_token()
+        run_id = await orchestrate.start_run(agent_id, token, payload)
+        run = await orchestrate.poll_run(agent_id, run_id, token)
+    except (HTTPException, KeyError, httpx.HTTPError):
+        return None
+    if run["status"] != "completed":
+        return None
+    return run["output"]["result"]
+
+
 @router.get("/profile")
-def enrollment_profile(db: Session = Depends(get_db)):
+async def enrollment_profile(db: Session = Depends(get_db)):
     # --- stage summary ---
     total_enrolled = db.execute(
         text("SELECT COUNT(*) FROM students WHERE status = 'enrolled'")
@@ -281,6 +299,11 @@ def enrollment_profile(db: Session = Depends(get_db)):
             "completion of CS101 prerequisite."
         ),
     }
+
+    if os.getenv("AI_MODE", "live") != "scripted":
+        live_note = await _live_rationale({"student_id": STUDENT_ID})
+        if live_note:
+            suggested_schedule["note"] = live_note
 
     return {
         "stage_summary": {

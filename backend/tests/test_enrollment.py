@@ -3,11 +3,15 @@
 import os
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import app.gateway.iam as iam_module
+import app.gateway.orchestrate as orchestrate_module
 from app.main import app
 from app.database import get_db
 
@@ -16,6 +20,18 @@ TEST_DATABASE_URL = os.getenv(
     "postgresql://waleedkhalaf@/school_ai_test?host=/tmp",
 )
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+
+WXO_BASE = "https://wxo.example.com"
+RUNS_URL = f"{WXO_BASE}/v1/orchestrate/runs"
+IAM_URL = "https://iam.cloud.ibm.com/identity/token"
+AGENT_ENROLLMENT = "agent-enrollment-001"
+
+
+@pytest.fixture(autouse=True)
+def reset_iam_token():
+    iam_module._token = None
+    iam_module._expires_at = 0.0
+    yield
 
 
 @pytest.fixture(scope="module")
@@ -275,3 +291,111 @@ def test_workflow_items_have_enrollment_stage(client):
     all_items = client.get("/api/workflows").json()
     enrollment_items = [i for i in all_items if i["stage"] == "enrollment"]
     assert len(enrollment_items) >= 3
+
+
+# ---------------------------------------------------------------------------
+# Issue #27 — live watsonx Orchestrate agent rationale, with scripted fallback
+# ---------------------------------------------------------------------------
+
+def _completed_run_response(run_id: str, text: str) -> dict:
+    return {
+        "id": run_id,
+        "status": "completed",
+        "result": {
+            "data": {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"id": "1", "response_type": "text", "text": text}],
+                }
+            }
+        },
+    }
+
+
+def test_suggested_schedule_uses_live_agent_note_when_run_completes(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ENROLLMENT", AGENT_ENROLLMENT)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-001"}))
+        router.get(f"{RUNS_URL}/run-001").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-001", "Live agent: switch MATH101 to section 02.")
+            )
+        )
+
+        sched = client.get("/api/enrollment/profile").json()["suggested_schedule"]
+
+    assert sched["note"] == "Live agent: switch MATH101 to section 02."
+
+
+def test_suggested_schedule_falls_back_to_computed_note_when_run_fails(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ENROLLMENT", AGENT_ENROLLMENT)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-fail"}))
+        router.get(f"{RUNS_URL}/run-fail").mock(
+            return_value=httpx.Response(200, json={"id": "run-fail", "status": "failed"})
+        )
+
+        sched = client.get("/api/enrollment/profile").json()["suggested_schedule"]
+
+    assert "Switch MATH101 from section 01" in sched["note"]
+
+
+def test_suggested_schedule_falls_back_to_computed_note_when_run_times_out(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ENROLLMENT", AGENT_ENROLLMENT)
+    monkeypatch.setattr(orchestrate_module, "POLL_INTERVAL", 0)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-timeout"}))
+        router.get(f"{RUNS_URL}/run-timeout").mock(
+            return_value=httpx.Response(200, json={"id": "run-timeout", "status": "running"})
+        )
+
+        sched = client.get("/api/enrollment/profile").json()["suggested_schedule"]
+
+    assert "Switch MATH101 from section 01" in sched["note"]
+
+
+def test_scripted_mode_never_contacts_orchestrate(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "scripted")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ENROLLMENT", AGENT_ENROLLMENT)
+
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        iam_route = router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        sched = client.get("/api/enrollment/profile").json()["suggested_schedule"]
+
+    assert not iam_route.called, "scripted mode must not contact IAM/Orchestrate"
+    assert "Switch MATH101 from section 01" in sched["note"]
+
+
+def test_suggested_schedule_falls_back_when_ai_mode_live_but_orchestrate_unconfigured(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.delenv("WXO_API_KEY", raising=False)
+    monkeypatch.delenv("AGENT_ID_ENROLLMENT", raising=False)
+
+    sched = client.get("/api/enrollment/profile").json()["suggested_schedule"]
+
+    assert "Switch MATH101 from section 01" in sched["note"]
