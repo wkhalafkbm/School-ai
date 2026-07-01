@@ -1,8 +1,13 @@
-from fastapi import APIRouter, Depends
+import os
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.gateway import iam, orchestrate
+from app.gateway.config import get_agent_id
 from app.status import StatusCode
 
 router = APIRouter(prefix="/api/teaching-readiness", tags=["teaching-readiness"])
@@ -29,8 +34,21 @@ def _readiness_health(overloaded_count: int, avg_score: float) -> str:
     return StatusCode.on_track
 
 
+async def _live_rationale(stage: str, payload: dict) -> str | None:
+    try:
+        agent_id = get_agent_id(stage)
+        token = await iam.get_token()
+        run_id = await orchestrate.start_run(agent_id, token, payload)
+        run = await orchestrate.poll_run(agent_id, run_id, token)
+    except (HTTPException, KeyError, httpx.HTTPError):
+        return None
+    if run["status"] != "completed":
+        return None
+    return run["output"]["result"]
+
+
 @router.get("/profile")
-def teaching_readiness_profile(db: Session = Depends(get_db)):
+async def teaching_readiness_profile(db: Session = Depends(get_db)):
     # --- cohort size (students enrolled in featured course's current semester) ---
     cohort_size = db.execute(
         text("""
@@ -139,11 +157,52 @@ def teaching_readiness_profile(db: Session = Depends(get_db)):
 
     workload_threshold_result = "fail" if overloaded_count > 0 else "pass"
 
+    # --- workload balancing rationale ---
+    overloaded_faculty = [f for f in faculty_workload if f["overloaded"]]
+    if overloaded_faculty:
+        names = ", ".join(f["name"] for f in overloaded_faculty)
+        workload_rationale = (
+            f"Faculty workload analysis flags {len(overloaded_faculty)} instructor(s) exceeding "
+            f"their credit cap: {names}. Recommend reassigning sections to available faculty "
+            "before the semester registration deadline to prevent burnout and maintain teaching quality."
+        )
+    else:
+        workload_rationale = (
+            f"Faculty workload is within capacity across {len(faculty_workload)} instructors; "
+            "no immediate rebalancing needed."
+        )
+
     # --- course name ---
     course_name = db.execute(
         text("SELECT name FROM courses WHERE id = :cid LIMIT 1"),
         {"cid": FEATURED_COURSE_ID},
     ).scalar() or "Introduction to Programming"
+
+    # --- cohort readiness rationale ---
+    weakest = max(assessment_failure_rates, key=lambda r: r["failure_rate"], default=None)
+    cohort_rationale = (
+        f"Cohort SLO assessment for {FEATURED_COURSE_CODE} shows {aggregate_readiness_score}% "
+        f"aggregate proficiency in {SEMESTERS[-1]}."
+    )
+    if weakest:
+        cohort_rationale += (
+            f" {weakest['slo_code']} ({weakest['description']}) is the area of greatest "
+            f"concern, with a {round(weakest['failure_rate'] * 100)}% failure rate. "
+            "Recommend adjusting instructional strategy and scheduling a mid-semester cohort review."
+        )
+
+    if os.getenv("AI_MODE", "live") != "scripted":
+        live_cohort_rationale = await _live_rationale(
+            "teaching_readiness_cohort", {"course_id": FEATURED_COURSE_ID}
+        )
+        if live_cohort_rationale:
+            cohort_rationale = live_cohort_rationale
+
+        live_workload_rationale = await _live_rationale(
+            "teaching_readiness_workload", {"course_id": FEATURED_COURSE_ID}
+        )
+        if live_workload_rationale:
+            workload_rationale = live_workload_rationale
 
     return {
         "stage_summary": {
@@ -155,8 +214,10 @@ def teaching_readiness_profile(db: Session = Depends(get_db)):
             "code": FEATURED_COURSE_CODE,
             "name": course_name,
             "slo_trends": slo_trends,
+            "rationale": cohort_rationale,
         },
         "assessment_failure_rates": assessment_failure_rates,
         "faculty_workload": faculty_workload,
         "workload_threshold_result": workload_threshold_result,
+        "workload_rationale": workload_rationale,
     }

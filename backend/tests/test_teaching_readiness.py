@@ -3,11 +3,15 @@
 import os
 from pathlib import Path
 
+import httpx
 import pytest
+import respx
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import app.gateway.iam as iam_module
+import app.gateway.orchestrate as orchestrate_module
 from app.main import app
 from app.database import get_db
 
@@ -16,6 +20,19 @@ TEST_DATABASE_URL = os.getenv(
     "postgresql://waleedkhalaf@/school_ai_test?host=/tmp",
 )
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+
+WXO_BASE = "https://wxo.example.com"
+RUNS_URL = f"{WXO_BASE}/v1/orchestrate/runs"
+IAM_URL = "https://iam.cloud.ibm.com/identity/token"
+AGENT_COHORT = "agent-teaching-readiness-cohort-001"
+AGENT_WORKLOAD = "agent-teaching-readiness-workload-001"
+
+
+@pytest.fixture(autouse=True)
+def reset_iam_token():
+    iam_module._token = None
+    iam_module._expires_at = 0.0
+    yield
 
 
 @pytest.fixture(scope="module")
@@ -265,3 +282,188 @@ def test_no_confidence_field_in_response(client):
     import json
     raw = json.dumps(client.get("/api/teaching-readiness/profile").json())
     assert "confidence" not in raw, "Forbidden 'confidence' field found in response"
+
+
+# ---------------------------------------------------------------------------
+# Cycle 10 — featured_course.rationale is a computed cohort-readiness rationale
+# ---------------------------------------------------------------------------
+
+def test_featured_course_has_rationale(client):
+    course = client.get("/api/teaching-readiness/profile").json()["featured_course"]
+    assert "rationale" in course
+    assert len(course["rationale"]) > 20
+
+
+# ---------------------------------------------------------------------------
+# Cycle 11 — workload_rationale is a computed workload-balancing rationale
+# ---------------------------------------------------------------------------
+
+def test_workload_rationale_present(client):
+    data = client.get("/api/teaching-readiness/profile").json()
+    assert "workload_rationale" in data
+    assert len(data["workload_rationale"]) > 20
+
+
+def test_workload_rationale_mentions_overloaded_faculty(client):
+    data = client.get("/api/teaching-readiness/profile").json()
+    overloaded_names = [f["name"] for f in data["faculty_workload"] if f["overloaded"]]
+    if overloaded_names:
+        assert any(name in data["workload_rationale"] for name in overloaded_names)
+
+
+# ---------------------------------------------------------------------------
+# Issue #28 — live watsonx Orchestrate agent rationales, with scripted fallback
+# ---------------------------------------------------------------------------
+
+def _completed_run_response(run_id: str, text: str) -> dict:
+    return {
+        "id": run_id,
+        "status": "completed",
+        "result": {
+            "data": {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"id": "1", "response_type": "text", "text": text}],
+                }
+            }
+        },
+    }
+
+
+def test_cohort_rationale_uses_live_agent_result_when_run_completes(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
+    monkeypatch.delenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-cohort"}))
+        router.get(f"{RUNS_URL}/run-cohort").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-cohort", "Live agent: focus on SLO-002 remediation.")
+            )
+        )
+
+        course = client.get("/api/teaching-readiness/profile").json()["featured_course"]
+
+    assert course["rationale"] == "Live agent: focus on SLO-002 remediation."
+
+
+def test_cohort_rationale_falls_back_when_run_fails(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
+    monkeypatch.delenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-cohort-fail"}))
+        router.get(f"{RUNS_URL}/run-cohort-fail").mock(
+            return_value=httpx.Response(200, json={"id": "run-cohort-fail", "status": "failed"})
+        )
+
+        course = client.get("/api/teaching-readiness/profile").json()["featured_course"]
+
+    assert "Cohort SLO assessment for CS101" in course["rationale"]
+
+
+def test_workload_rationale_uses_live_agent_result_when_run_completes(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", AGENT_WORKLOAD)
+    monkeypatch.delenv("AGENT_ID_TEACHING_READINESS_COHORT", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-workload"}))
+        router.get(f"{RUNS_URL}/run-workload").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-workload", "Live agent: reassign one section.")
+            )
+        )
+
+        data = client.get("/api/teaching-readiness/profile").json()
+
+    assert data["workload_rationale"] == "Live agent: reassign one section."
+
+
+def test_workload_rationale_falls_back_when_run_fails(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", AGENT_WORKLOAD)
+    monkeypatch.delenv("AGENT_ID_TEACHING_READINESS_COHORT", raising=False)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-workload-fail"}))
+        router.get(f"{RUNS_URL}/run-workload-fail").mock(
+            return_value=httpx.Response(200, json={"id": "run-workload-fail", "status": "failed"})
+        )
+
+        data = client.get("/api/teaching-readiness/profile").json()
+
+    assert "Faculty workload" in data["workload_rationale"]
+
+
+def test_one_agent_failing_does_not_blank_the_others_live_result(client, monkeypatch):
+    """Cohort agent fails, workload agent succeeds — each falls back/succeeds independently."""
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", AGENT_WORKLOAD)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_COHORT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-cohort-fail"})
+        )
+        router.get(f"{RUNS_URL}/run-cohort-fail").mock(
+            return_value=httpx.Response(200, json={"id": "run-cohort-fail", "status": "failed"})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_WORKLOAD).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-workload-ok"})
+        )
+        router.get(f"{RUNS_URL}/run-workload-ok").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-workload-ok", "Live agent: reassign one section.")
+            )
+        )
+
+        data = client.get("/api/teaching-readiness/profile").json()
+
+    assert "Cohort SLO assessment for CS101" in data["featured_course"]["rationale"]
+    assert data["workload_rationale"] == "Live agent: reassign one section."
+
+
+def test_scripted_mode_never_contacts_orchestrate_for_readiness(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "scripted")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", AGENT_WORKLOAD)
+
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        iam_route = router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        data = client.get("/api/teaching-readiness/profile").json()
+
+    assert not iam_route.called, "scripted mode must not contact IAM/Orchestrate"
+    assert "Cohort SLO assessment for CS101" in data["featured_course"]["rationale"]
+    assert "Faculty workload" in data["workload_rationale"]
