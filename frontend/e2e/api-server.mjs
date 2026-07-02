@@ -215,6 +215,12 @@ const ROUTES = {
       status: "pending",
       created_date: "2024-10-17",
     },
+    engagement_assessment: {
+      rationale: "LMS activity dropped sharply over the last three weeks, consistent with disengagement.",
+    },
+    support_assessment: {
+      rationale: "No open case with student support services; recommend opening one alongside tutoring referral.",
+    },
   },
 
   "/api/progression/profile": {

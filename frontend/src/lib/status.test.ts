@@ -10,6 +10,7 @@ const ALL_WORKFLOW_STATUSES: WorkflowStatus[] = [
   "completed",
   "overdue",
   "blocked",
+  "approved",
 ];
 
 describe("STATUS_CLASSES", () => {

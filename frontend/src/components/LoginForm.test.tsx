@@ -1,16 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import LoginForm from "./LoginForm";
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: mockPush }),
-}));
-
-const mockPush = vi.fn();
+const mockOnLogin = vi.fn();
 
 beforeEach(() => {
-  mockPush.mockClear();
+  mockOnLogin.mockClear();
   sessionStorage.clear();
 });
 
@@ -80,28 +76,28 @@ describe("LoginForm — form fields", () => {
 });
 
 describe("LoginForm — submit behavior", () => {
-  it("navigates to / when non-empty credentials are submitted", async () => {
+  it("calls onLogin when non-empty credentials are submitted", async () => {
     const user = userEvent.setup();
-    render(<LoginForm />);
+    render(<LoginForm onLogin={mockOnLogin} />);
     await user.type(screen.getByLabelText(/username/i), "admin");
     await user.type(screen.getByLabelText(/password/i), "password");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
-    expect(mockPush).toHaveBeenCalledWith("/");
+    expect(mockOnLogin).toHaveBeenCalled();
   });
 
-  it("does not navigate when username is empty", async () => {
+  it("does not call onLogin when username is empty", async () => {
     const user = userEvent.setup();
-    render(<LoginForm />);
+    render(<LoginForm onLogin={mockOnLogin} />);
     await user.type(screen.getByLabelText(/password/i), "password");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockOnLogin).not.toHaveBeenCalled();
   });
 
-  it("does not navigate when password is empty", async () => {
+  it("does not call onLogin when password is empty", async () => {
     const user = userEvent.setup();
-    render(<LoginForm />);
+    render(<LoginForm onLogin={mockOnLogin} />);
     await user.type(screen.getByLabelText(/username/i), "admin");
     await user.click(screen.getByRole("button", { name: /sign in/i }));
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockOnLogin).not.toHaveBeenCalled();
   });
 });
