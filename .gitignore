@@ -6,6 +6,7 @@ Student\ Uni\ Journey.pdf
 
 # Environment
 .env
+.env.local
 .venv/
 creds.json
 *creds*.json
