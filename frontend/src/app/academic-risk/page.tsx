@@ -1,5 +1,9 @@
+"use client";
+
 import StatusBadge from "@/components/StatusBadge";
 import MarkdownText from "@/components/MarkdownText";
+import StreamedField from "@/components/StreamedField";
+import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import { StatusCode } from "@/lib/status";
 import AcademicRiskActions from "./AcademicRiskActions";
 
@@ -62,14 +66,6 @@ interface AcademicRiskProfile {
   support_assessment: RationaleAssessment;
 }
 
-async function fetchProfile(): Promise<AcademicRiskProfile> {
-  const res = await fetch(`${API}/api/academic-risk/profile`, {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`/api/academic-risk/profile → ${res.status}`);
-  return res.json();
-}
-
 const CONFIDENCE_CLASSES: Record<string, string> = {
   High: "bg-green-100 text-green-700",
   Medium: "bg-amber-100 text-amber-700",
@@ -91,7 +87,15 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export default async function AcademicRiskPage() {
+export default function AcademicRiskPage() {
+  const { data, done } = useStreamedProfile<AcademicRiskProfile>(
+    `${API}/api/academic-risk/profile/stream`
+  );
+
+  if (!data) {
+    return <main className="p-6 text-sm text-gray-500">Loading academic risk profile…</main>;
+  }
+
   const {
     stage_summary,
     student,
@@ -100,7 +104,7 @@ export default async function AcademicRiskPage() {
     sponsor_escalation,
     engagement_assessment,
     support_assessment,
-  } = await fetchProfile();
+  } = data;
 
   return (
     <main className="space-y-6 p-6">
@@ -183,7 +187,9 @@ export default async function AcademicRiskPage() {
           Engagement &amp; Early Risk Assessment
         </h2>
         <div className="text-sm text-gray-600">
-          <MarkdownText text={engagement_assessment.rationale} />
+          <StreamedField resolved={done}>
+            <MarkdownText text={engagement_assessment.rationale} />
+          </StreamedField>
         </div>
       </section>
 
@@ -202,7 +208,9 @@ export default async function AcademicRiskPage() {
           </span>
         </div>
         <div className="mb-4 text-sm text-gray-600">
-          <MarkdownText text={intervention_plan.rationale} />
+          <StreamedField resolved={done}>
+            <MarkdownText text={intervention_plan.rationale} />
+          </StreamedField>
         </div>
         <ul className="space-y-2">
           {intervention_plan.actions.map((action) => (
@@ -250,7 +258,9 @@ export default async function AcademicRiskPage() {
           Student Support &amp; Case Management
         </h2>
         <div className="text-sm text-gray-600">
-          <MarkdownText text={support_assessment.rationale} />
+          <StreamedField resolved={done}>
+            <MarkdownText text={support_assessment.rationale} />
+          </StreamedField>
         </div>
       </section>
 

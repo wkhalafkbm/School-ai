@@ -1,6 +1,9 @@
 """Tests for the Academic Risk page API (issue #15)."""
 
+import asyncio
+import json
 import os
+import time
 from pathlib import Path
 
 import httpx
@@ -592,3 +595,242 @@ def test_scripted_mode_never_contacts_orchestrate_for_academic_risk(client, monk
     assert len(data["intervention_plan"]["rationale"]) > 20
     assert "Fahad averages" in data["engagement_assessment"]["rationale"]
     assert "GPA of" in data["support_assessment"]["rationale"]
+
+
+# ---------------------------------------------------------------------------
+# Issue #42 — GET /api/academic-risk/profile/stream (SSE)
+# ---------------------------------------------------------------------------
+
+def _parse_sse_events(raw: str) -> list[tuple[str, dict]]:
+    events = []
+    for block in raw.split("\n\n"):
+        block = block.strip()
+        if not block:
+            continue
+        lines = block.split("\n")
+        event = next(line[len("event: "):] for line in lines if line.startswith("event: "))
+        data = next(line[len("data: "):] for line in lines if line.startswith("data: "))
+        events.append((event, json.loads(data)))
+    return events
+
+
+def test_academic_risk_profile_stream_returns_event_stream_content_type(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "scripted")
+
+    with client.stream("GET", "/api/academic-risk/profile/stream") as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+
+def test_academic_risk_profile_stream_scripted_mode_yields_base_three_fields_done_without_contacting_orchestrate(
+    client, monkeypatch
+):
+    monkeypatch.setenv("AI_MODE", "scripted")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", AGENT_INTERVENTION)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", AGENT_ENGAGEMENT)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", AGENT_SUPPORT)
+
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        iam_route = router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        with client.stream("GET", "/api/academic-risk/profile/stream") as response:
+            raw = response.read().decode()
+
+    assert not iam_route.called, "scripted mode must not contact IAM/Orchestrate"
+
+    events = _parse_sse_events(raw)
+    assert [event for event, _ in events] == ["base", "field", "field", "field", "done"]
+
+    base_event = events[0]
+    field_events = events[1:4]
+    done_event = events[4]
+
+    base_data = base_event[1]
+    assert len(base_data["intervention_plan"]["rationale"]) > 20
+    assert "Fahad averages" in base_data["engagement_assessment"]["rationale"]
+    assert "GPA of" in base_data["support_assessment"]["rationale"]
+
+    field_paths = {event_data["path"] for _, event_data in field_events}
+    assert field_paths == {
+        "intervention_plan.rationale",
+        "engagement_assessment.rationale",
+        "support_assessment.rationale",
+    }
+
+    field_values_by_path = {event_data["path"]: event_data["value"] for _, event_data in field_events}
+    assert field_values_by_path["intervention_plan.rationale"] == base_data["intervention_plan"]["rationale"]
+    assert field_values_by_path["engagement_assessment.rationale"] == base_data["engagement_assessment"]["rationale"]
+    assert field_values_by_path["support_assessment.rationale"] == base_data["support_assessment"]["rationale"]
+
+    assert done_event[1] == {}
+
+
+def test_academic_risk_profile_stream_live_mode_field_events_carry_live_rationale(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", AGENT_INTERVENTION)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", AGENT_ENGAGEMENT)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", AGENT_SUPPORT)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_INTERVENTION).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-intervention-stream"})
+        )
+        router.get(f"{RUNS_URL}/run-intervention-stream").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-intervention-stream", "Live agent: schedule tutoring now.")
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_ENGAGEMENT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-engagement-stream"})
+        )
+        router.get(f"{RUNS_URL}/run-engagement-stream").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-engagement-stream", "Live agent: urgent outreach needed.")
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_SUPPORT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-support-stream"})
+        )
+        router.get(f"{RUNS_URL}/run-support-stream").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-support-stream", "Live agent: initiate welfare check.")
+            )
+        )
+
+        with client.stream("GET", "/api/academic-risk/profile/stream") as response:
+            raw = response.read().decode()
+
+    events = _parse_sse_events(raw)
+    assert [event for event, _ in events] == ["base", "field", "field", "field", "done"]
+
+    field_values_by_path = {
+        event_data["path"]: event_data["value"] for _, event_data in events[1:4]
+    }
+    assert field_values_by_path == {
+        "intervention_plan.rationale": "Live agent: schedule tutoring now.",
+        "engagement_assessment.rationale": "Live agent: urgent outreach needed.",
+        "support_assessment.rationale": "Live agent: initiate welfare check.",
+    }
+
+
+def test_academic_risk_profile_stream_field_events_arrive_in_completion_order(client, monkeypatch):
+    # Declared first (intervention) is the slowest and must still complete last;
+    # declared last (support) is the fastest and must still complete first.
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", AGENT_INTERVENTION)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", AGENT_ENGAGEMENT)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", AGENT_SUPPORT)
+
+    async def delayed_completed_run(delay, run_id, text):
+        await asyncio.sleep(delay)
+        return httpx.Response(200, json=_completed_run_response(run_id, text))
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_INTERVENTION).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-intervention-order"})
+        )
+        router.get(f"{RUNS_URL}/run-intervention-order").mock(
+            side_effect=lambda request: delayed_completed_run(
+                0.4, "run-intervention-order", "Live agent: schedule tutoring now."
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_ENGAGEMENT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-engagement-order"})
+        )
+        router.get(f"{RUNS_URL}/run-engagement-order").mock(
+            side_effect=lambda request: delayed_completed_run(
+                0.15, "run-engagement-order", "Live agent: urgent outreach needed."
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_SUPPORT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-support-order"})
+        )
+        router.get(f"{RUNS_URL}/run-support-order").mock(
+            side_effect=lambda request: delayed_completed_run(
+                0.0, "run-support-order", "Live agent: initiate welfare check."
+            )
+        )
+
+        with client.stream("GET", "/api/academic-risk/profile/stream") as response:
+            raw = response.read().decode()
+
+    events = _parse_sse_events(raw)
+    field_paths_in_order = [event_data["path"] for event, event_data in events if event == "field"]
+
+    assert field_paths_in_order == [
+        "support_assessment.rationale",
+        "engagement_assessment.rationale",
+        "intervention_plan.rationale",
+    ], "field events must arrive in completion order, not declaration order"
+
+
+# ---------------------------------------------------------------------------
+# Cycle — /profile computes the 3 gateway calls concurrently, not sequentially
+# ---------------------------------------------------------------------------
+
+CALL_DELAY = 0.3
+
+
+def test_profile_resolves_the_three_gateway_calls_concurrently(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", AGENT_INTERVENTION)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", AGENT_ENGAGEMENT)
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", AGENT_SUPPORT)
+
+    async def slow_completed_run(request, run_id, text):
+        await asyncio.sleep(CALL_DELAY)
+        return httpx.Response(200, json=_completed_run_response(run_id, text))
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_INTERVENTION).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-intervention-timing"})
+        )
+        router.get(f"{RUNS_URL}/run-intervention-timing").mock(
+            side_effect=lambda request: slow_completed_run(
+                request, "run-intervention-timing", "Live agent: schedule tutoring now."
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_ENGAGEMENT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-engagement-timing"})
+        )
+        router.get(f"{RUNS_URL}/run-engagement-timing").mock(
+            side_effect=lambda request: slow_completed_run(
+                request, "run-engagement-timing", "Live agent: urgent outreach needed."
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_SUPPORT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-support-timing"})
+        )
+        router.get(f"{RUNS_URL}/run-support-timing").mock(
+            side_effect=lambda request: slow_completed_run(
+                request, "run-support-timing", "Live agent: initiate welfare check."
+            )
+        )
+
+        start = time.perf_counter()
+        response = client.get("/api/academic-risk/profile")
+        elapsed = time.perf_counter() - start
+
+    assert response.status_code == 200
+    assert elapsed < 2 * CALL_DELAY, (
+        f"Expected concurrent gateway calls (~{CALL_DELAY}s), took {elapsed:.2f}s — "
+        "looks sequential (~3x call duration)"
+    )
