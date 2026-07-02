@@ -30,4 +30,27 @@ describe("MarkdownText", () => {
     expect(wrapper).not.toBeNull();
     expect(wrapper!.className).toContain("prose");
   });
+
+  it("renders embedded raw HTML like <br> as a real element", () => {
+    const markdown = "| Col A |\n| --- |\n| line one<br>line two |";
+
+    const { container } = render(<MarkdownText text={markdown} />);
+
+    expect(container.querySelector("br")).not.toBeNull();
+    expect(container.textContent).not.toContain("<br>");
+  });
+
+  it("strips dangerous embedded HTML like <script> and event handlers", () => {
+    const markdown =
+      'safe text<script>window.hacked = true;</script><img src="x" onerror="window.hacked = true;" />';
+
+    const { container } = render(<MarkdownText text={markdown} />);
+
+    expect(container.querySelector("script")).toBeNull();
+    expect(container.textContent).not.toContain("hacked");
+    const img = container.querySelector("img");
+    expect(img === null || img.getAttribute("onerror")).not.toBe(
+      "window.hacked = true;",
+    );
+  });
 });
