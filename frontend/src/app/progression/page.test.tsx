@@ -67,7 +67,7 @@ const MOCK_PROFILE = {
       },
     ],
     confidence: "High",
-    rationale: "Student profile is well-documented and evidence supports a confident recommendation.",
+    rationale: "Student profile is **well-documented** and evidence supports a confident recommendation.",
   },
   plan_update_item: {
     id: "wfl-004",
@@ -266,11 +266,23 @@ describe("ProgressionPage", () => {
   it("shows rationale text", async () => {
     mockFetch(MOCK_PROFILE);
     const { default: Page } = await import("./page");
-    render(await Page());
+    const { container } = render(await Page());
 
-    expect(
-      screen.getByText(/well-documented.*evidence.*confident|confident.*recommendation/i)
-    ).toBeInTheDocument();
+    expect(container.textContent).toMatch(
+      /well-documented.*evidence.*confident|confident.*recommendation/i
+    );
+  });
+
+  it("renders graduation risk summary rationale markdown as HTML, not raw syntax", async () => {
+    mockFetch(MOCK_PROFILE);
+    const { default: Page } = await import("./page");
+    const { container } = render(await Page());
+
+    const strongEls = Array.from(container.querySelectorAll("strong")).filter(
+      (el) => el.textContent === "well-documented"
+    );
+    expect(strongEls).toHaveLength(1);
+    expect(container.textContent).not.toContain("**well-documented**");
   });
 
   it("lists graduation plan actions", async () => {

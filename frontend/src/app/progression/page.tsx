@@ -1,4 +1,5 @@
 import StatusBadge from "@/components/StatusBadge";
+import MarkdownText from "@/components/MarkdownText";
 import { StatusCode } from "@/lib/status";
 import ProgressionActions from "./ProgressionActions";
 
@@ -322,9 +323,9 @@ export default async function ProgressionPage() {
             {graduation_risk_summary.confidence} Confidence
           </span>
         </div>
-        <p className="mb-4 text-sm text-gray-600">
-          {graduation_risk_summary.rationale}
-        </p>
+        <div className="mb-4 text-sm text-gray-600">
+          <MarkdownText text={graduation_risk_summary.rationale} />
+        </div>
         <ul className="space-y-2">
           {graduation_risk_summary.actions.map((action) => (
             <li
