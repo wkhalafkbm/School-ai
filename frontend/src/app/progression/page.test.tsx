@@ -1,5 +1,32 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act } from "react";
+import ProgressionPage from "./page";
+
+class StubEventSource {
+  static instances: StubEventSource[] = [];
+  listeners: Record<string, ((event: { data: string }) => void)[]> = {};
+  closed = false;
+  onerror: ((event: unknown) => void) | null = null;
+
+  constructor(public url: string) {
+    StubEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, cb: (event: { data: string }) => void) {
+    (this.listeners[type] ??= []).push(cb);
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  emit(type: string, data: unknown) {
+    for (const cb of this.listeners[type] ?? []) {
+      cb({ data: JSON.stringify(data) });
+    }
+  }
+}
 
 const MOCK_PROFILE = {
   stage_summary: {
@@ -79,37 +106,84 @@ const MOCK_PROFILE = {
   },
 };
 
-function mockFetch(data: unknown) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok: true, json: async () => data })
-  );
+function renderResolvedPage(data: unknown = MOCK_PROFILE) {
+  const result = render(<ProgressionPage />);
+  const es = StubEventSource.instances[StubEventSource.instances.length - 1];
+
+  act(() => {
+    es.emit("base", data);
+  });
+  act(() => {
+    es.emit("done", {});
+  });
+
+  return result;
 }
 
+beforeEach(() => {
+  StubEventSource.instances = [];
+  vi.stubGlobal("EventSource", StubEventSource);
+});
+
 // ---------------------------------------------------------------------------
-// Cycle 1 — tracer bullet: page renders stage header with health badge
+// Cycle 1 — tracer bullet: streamed base+done renders stage header with
+// health badge, and the "AI refining…" badge clears once done
 // ---------------------------------------------------------------------------
 
 describe("ProgressionPage", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("renders the Progression heading and health status", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the Progression heading and health status", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("Progression")).toBeInTheDocument();
     expect(screen.getAllByText(/needs attention/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows fallback rationale immediately on base, and clears the refining badge on done", () => {
+    render(<ProgressionPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+
+    expect(screen.getByText(/well-documented/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/AI refining/i)).toHaveLength(1);
+
+    act(() => {
+      es.emit("done", {});
+    });
+
+    expect(screen.queryByText(/AI refining/i)).not.toBeInTheDocument();
+  });
+
+  it("updates the rationale independently as its field event arrives", () => {
+    render(<ProgressionPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+
+    act(() => {
+      es.emit("field", {
+        path: "graduation_risk_summary.rationale",
+        value: "Live agent: graduation on track with plan update.",
+      });
+    });
+
+    expect(
+      screen.getByText("Live agent: graduation on track with plan update.")
+    ).toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------
   // Cycle 2 — stage summary shows on-track and at-risk counts
   // -------------------------------------------------------------------------
 
-  it("shows on-track and at-risk graduation counts", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows on-track and at-risk graduation counts", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/on.track/i)).toBeInTheDocument();
     expect(screen.getByText(/at.risk/i)).toBeInTheDocument();
@@ -119,19 +193,15 @@ describe("ProgressionPage", () => {
   // Cycle 3 — Noor Al-Hamad student profile card
   // -------------------------------------------------------------------------
 
-  it("shows Noor Al-Hamad's name and program", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows Noor Al-Hamad's name and program", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("Noor Al-Hamad")).toBeInTheDocument();
     expect(screen.getByText("Computer Science")).toBeInTheDocument();
   });
 
-  it("shows GPA value", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows GPA value", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("2.80")).toBeInTheDocument();
   });
@@ -140,26 +210,20 @@ describe("ProgressionPage", () => {
   // Cycle 4 — credit map shows earned vs required with substitutions
   // -------------------------------------------------------------------------
 
-  it("renders the credit map section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the credit map section", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/credit.*map|credits.*requirement/i)).toBeInTheDocument();
   });
 
-  it("shows total credits earned and required", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows total credits earned and required", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/72.*132|72 of 132/i)).toBeInTheDocument();
   });
 
-  it("highlights substituted courses", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("highlights substituted courses", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/CS201.*Data Structures|substitut/i).length).toBeGreaterThanOrEqual(1);
   });
@@ -168,35 +232,27 @@ describe("ProgressionPage", () => {
   // Cycle 5 — bottleneck course with section capacity (institutional framing)
   // -------------------------------------------------------------------------
 
-  it("renders the bottleneck course section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the bottleneck course section", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/bottleneck.*course|institutional.*constraint/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows CS302 Operating Systems as bottleneck", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows CS302 Operating Systems as bottleneck", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/CS302/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Operating Systems/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows section capacity data", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows section capacity data", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/27.*30|27 of 30/i)).toBeInTheDocument();
   });
 
-  it("shows institutional constraint note", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows institutional constraint note", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/90%.*capacity|limited seat availability/i)).toBeInTheDocument();
   });
@@ -205,18 +261,14 @@ describe("ProgressionPage", () => {
   // Cycle 6 — cohort delay forecast
   // -------------------------------------------------------------------------
 
-  it("renders the cohort delay forecast", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the cohort delay forecast", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/cohort.*delay|delay.*forecast/i)).toBeInTheDocument();
   });
 
-  it("shows number of students at graduation risk", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows number of students at graduation risk", () => {
+    renderResolvedPage();
 
     // text is split across <strong> elements — check for individual values
     expect(screen.getAllByText("5").length).toBeGreaterThanOrEqual(1);
@@ -227,18 +279,14 @@ describe("ProgressionPage", () => {
   // Cycle 7 — below-target SLO signal linked to bottleneck course
   // -------------------------------------------------------------------------
 
-  it("renders the SLO signal section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the SLO signal section", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/SLO.*achievement|curriculum.*signal|CS302-SLO1/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows below-target proficiency rate", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows below-target proficiency rate", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/41%|below.*target/i).length).toBeGreaterThanOrEqual(1);
   });
@@ -247,36 +295,28 @@ describe("ProgressionPage", () => {
   // Cycle 8 — graduation risk summary with confidence and rationale
   // -------------------------------------------------------------------------
 
-  it("renders the graduation risk summary section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the graduation risk summary section", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/graduation.*risk.*summary|graduation.*plan/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows confidence label", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows confidence label", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/high confidence/i)).toBeInTheDocument();
   });
 
-  it("shows rationale text", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    const { container } = render(await Page());
+  it("shows rationale text", () => {
+    const { container } = renderResolvedPage();
 
     expect(container.textContent).toMatch(
       /well-documented.*evidence.*confident|confident.*recommendation/i
     );
   });
 
-  it("renders graduation risk summary rationale markdown as HTML, not raw syntax", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    const { container } = render(await Page());
+  it("renders graduation risk summary rationale markdown as HTML, not raw syntax", () => {
+    const { container } = renderResolvedPage();
 
     const strongEls = Array.from(container.querySelectorAll("strong")).filter(
       (el) => el.textContent === "well-documented"
@@ -285,10 +325,8 @@ describe("ProgressionPage", () => {
     expect(container.textContent).not.toContain("**well-documented**");
   });
 
-  it("lists graduation plan actions", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("lists graduation plan actions", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/credit.*deficit|summer enrollment/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/internship/i).length).toBeGreaterThanOrEqual(1);
@@ -298,26 +336,20 @@ describe("ProgressionPage", () => {
   // Cycle 9 — plan update workflow item (seeded, auto-triggered)
   // -------------------------------------------------------------------------
 
-  it("renders the plan update item section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the plan update item section", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/graduation plan.*update|plan.*update/i)).toBeInTheDocument();
   });
 
-  it("shows the seeded workflow item trigger", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows the seeded workflow item trigger", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/credits deficit detected/i)).toBeInTheDocument();
   });
 
-  it("shows the department chair owner", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows the department chair owner", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/Dr. Bader Al-Otaibi/i)).toBeInTheDocument();
   });
@@ -326,20 +358,16 @@ describe("ProgressionPage", () => {
   // Cycle 10 — "Update Graduation Plan" button opens approval modal
   // -------------------------------------------------------------------------
 
-  it("renders the Update Graduation Plan button", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the Update Graduation Plan button", () => {
+    renderResolvedPage();
 
     expect(
       screen.getByRole("button", { name: /update graduation plan/i })
     ).toBeInTheDocument();
   });
 
-  it("clicking Update Graduation Plan opens a modal", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("clicking Update Graduation Plan opens a modal", () => {
+    renderResolvedPage();
 
     fireEvent.click(screen.getByRole("button", { name: /update graduation plan/i }));
 
@@ -349,23 +377,17 @@ describe("ProgressionPage", () => {
   });
 
   it("confirming fires one workflow POST to academic advisor", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => MOCK_PROFILE });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { default: Page } = await import("./page");
-    render(await Page());
-
-    fetchMock.mockClear();
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) });
+    renderResolvedPage();
 
     fireEvent.click(screen.getByRole("button", { name: /update graduation plan/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
 
     await waitFor(() => {
       const postCalls = fetchMock.mock.calls.filter(
-        ([, opts]: [string, RequestInit]) => opts?.method === "POST"
+        ([, opts]: any[]) => opts?.method === "POST"
       );
       expect(postCalls).toHaveLength(1);
       const body = JSON.parse(postCalls[0][1].body as string);

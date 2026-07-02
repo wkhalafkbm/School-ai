@@ -1,7 +1,8 @@
-import os
+import asyncio
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -10,6 +11,7 @@ from app.evidence import build_evidence
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
 from app.status import StatusCode
+from app.streaming import ResolverFn, resolve_or_fallback, set_nested, stream_profile
 
 router = APIRouter(prefix="/api/progression", tags=["progression"])
 
@@ -45,8 +47,7 @@ async def _live_rationale(payload: dict) -> str | None:
     return run["output"]["result"]
 
 
-@router.get("/profile")
-async def progression_profile(db: Session = Depends(get_db)):
+def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     # --- stage summary: on_track vs at_risk graduation counts ---
     counts_row = db.execute(
         text("""
@@ -267,12 +268,7 @@ async def progression_profile(db: Session = Depends(get_db)):
         else None
     )
 
-    if os.getenv("AI_MODE", "live") != "scripted":
-        live_rationale = await _live_rationale({"student_id": STUDENT_ID})
-        if live_rationale:
-            graduation_risk_summary["rationale"] = live_rationale
-
-    return {
+    base = {
         "stage_summary": {
             "health": _progression_health(at_risk_count, on_track_count + at_risk_count),
             "on_track_count": on_track_count,
@@ -292,3 +288,29 @@ async def progression_profile(db: Session = Depends(get_db)):
         "graduation_risk_summary": graduation_risk_summary,
         "plan_update_item": plan_update_item,
     }
+
+    async def resolve_rationale() -> str:
+        return await resolve_or_fallback(
+            graduation_risk_summary["rationale"],
+            lambda: _live_rationale({"student_id": STUDENT_ID}),
+        )
+
+    resolvers: dict[str, ResolverFn] = {"graduation_risk_summary.rationale": resolve_rationale}
+
+    return base, resolvers
+
+
+@router.get("/profile")
+async def progression_profile(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    paths = list(resolvers.keys())
+    values = await asyncio.gather(*(resolvers[path]() for path in paths))
+    for path, value in zip(paths, values):
+        set_nested(base, path, value)
+    return base
+
+
+@router.get("/profile/stream")
+async def progression_profile_stream(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    return StreamingResponse(stream_profile(base, resolvers), media_type="text/event-stream")

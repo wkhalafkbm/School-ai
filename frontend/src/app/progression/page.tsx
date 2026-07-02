@@ -1,5 +1,9 @@
+"use client";
+
 import StatusBadge from "@/components/StatusBadge";
 import MarkdownText from "@/components/MarkdownText";
+import StreamedField from "@/components/StreamedField";
+import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import { StatusCode } from "@/lib/status";
 import ProgressionActions from "./ProgressionActions";
 
@@ -90,14 +94,6 @@ interface ProgressionProfile {
   plan_update_item: PlanUpdateItem | null;
 }
 
-async function fetchProfile(): Promise<ProgressionProfile> {
-  const res = await fetch(`${API}/api/progression/profile`, {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`/api/progression/profile → ${res.status}`);
-  return res.json();
-}
-
 const CONFIDENCE_CLASSES: Record<string, string> = {
   High: "bg-green-100 text-green-700",
   Medium: "bg-amber-100 text-amber-700",
@@ -136,7 +132,15 @@ function CreditBar({ earned, required }: { earned: number; required: number }) {
   );
 }
 
-export default async function ProgressionPage() {
+export default function ProgressionPage() {
+  const { data, done } = useStreamedProfile<ProgressionProfile>(
+    `${API}/api/progression/profile/stream`
+  );
+
+  if (!data) {
+    return <main className="p-6 text-sm text-gray-500">Loading progression profile…</main>;
+  }
+
   const {
     stage_summary,
     student,
@@ -146,7 +150,7 @@ export default async function ProgressionPage() {
     bottleneck_slo_signal,
     graduation_risk_summary,
     plan_update_item,
-  } = await fetchProfile();
+  } = data;
 
   return (
     <main className="space-y-6 p-6">
@@ -324,7 +328,9 @@ export default async function ProgressionPage() {
           </span>
         </div>
         <div className="mb-4 text-sm text-gray-600">
-          <MarkdownText text={graduation_risk_summary.rationale} />
+          <StreamedField resolved={done}>
+            <MarkdownText text={graduation_risk_summary.rationale} />
+          </StreamedField>
         </div>
         <ul className="space-y-2">
           {graduation_risk_summary.actions.map((action) => (
