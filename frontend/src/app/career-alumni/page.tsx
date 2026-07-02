@@ -1,4 +1,5 @@
 import StatusBadge from "@/components/StatusBadge";
+import MarkdownText from "@/components/MarkdownText";
 import { StatusCode } from "@/lib/status";
 import CareerAlumniActions from "./CareerAlumniActions";
 
@@ -236,7 +237,9 @@ export default async function CareerAlumniPage() {
               <p className="text-sm font-medium text-gray-900">
                 {elective.course_code} — {elective.course_name}
               </p>
-              <p className="mt-1 text-xs text-gray-500">{elective.rationale}</p>
+              <div className="mt-1 text-xs text-gray-500">
+                <MarkdownText text={elective.rationale} />
+              </div>
             </div>
           ))}
         </div>
@@ -264,7 +267,9 @@ export default async function CareerAlumniPage() {
                   {internship.target_semester}
                 </span>
               </div>
-              <p className="mt-2 text-xs text-gray-500">{internship.rationale}</p>
+              <div className="mt-2 text-xs text-gray-500">
+                <MarkdownText text={internship.rationale} />
+              </div>
             </div>
           ))}
         </div>
@@ -320,9 +325,9 @@ export default async function CareerAlumniPage() {
             {career_pathway_recommendation.confidence} Confidence
           </span>
         </div>
-        <p className="mb-4 text-sm text-gray-600">
-          {career_pathway_recommendation.rationale}
-        </p>
+        <div className="mb-4 text-sm text-gray-600">
+          <MarkdownText text={career_pathway_recommendation.rationale} />
+        </div>
         <ul className="space-y-2">
           {career_pathway_recommendation.actions.map((action) => (
             <li

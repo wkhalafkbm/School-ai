@@ -44,7 +44,7 @@ const MOCK_PROFILE = {
         course_code: "BA401",
         course_name: "Advanced Financial Modelling",
         rationale:
-          "Directly addresses the identified gap in financial modelling skills required for target role",
+          "Directly addresses the identified gap in **financial modelling** skills required for target role",
       },
       {
         course_code: "DS201",
@@ -59,7 +59,7 @@ const MOCK_PROFILE = {
         industry: "Banking & Finance",
         target_semester: "Spring 2025",
         rationale:
-          "Aligns with target industry and provides hands-on financial analysis experience",
+          "Aligns with target industry and provides **hands-on financial analysis** experience",
       },
     ],
   },
@@ -103,7 +103,7 @@ const MOCK_PROFILE = {
     ],
     confidence: "High",
     rationale:
-      "Omar's academic standing and program alignment strongly support the Financial Analyst pathway. Historical outcomes from 87% of similar graduates confirm placement within 3 months.",
+      "Omar's academic standing and program alignment strongly support the **Financial Analyst pathway**. Historical outcomes from 87% of similar graduates confirm placement within 3 months.",
   },
   career_advisor_item: null,
 };
@@ -235,6 +235,18 @@ describe("CareerAlumniPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders elective rationale markdown as HTML, not raw syntax", async () => {
+    mockFetch(MOCK_PROFILE);
+    const { default: Page } = await import("./page");
+    const { container } = render(await Page());
+
+    const strongEls = Array.from(container.querySelectorAll("strong")).filter(
+      (el) => el.textContent === "financial modelling"
+    );
+    expect(strongEls).toHaveLength(1);
+    expect(container.textContent).not.toContain("**financial modelling**");
+  });
+
   // -------------------------------------------------------------------------
   // Cycle 6 — internship recommendations with rationale
   // -------------------------------------------------------------------------
@@ -262,8 +274,8 @@ describe("CareerAlumniPage", () => {
     render(await Page());
 
     expect(
-      screen.getByText(/aligns with target industry|hands-on financial analysis/i)
-    ).toBeInTheDocument();
+      screen.getAllByText(/aligns with target industry|hands-on financial analysis/i).length
+    ).toBeGreaterThanOrEqual(1);
   });
 
   // -------------------------------------------------------------------------
@@ -320,6 +332,18 @@ describe("CareerAlumniPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders internship rationale markdown as HTML, not raw syntax", async () => {
+    mockFetch(MOCK_PROFILE);
+    const { default: Page } = await import("./page");
+    const { container } = render(await Page());
+
+    const strongEls = Array.from(container.querySelectorAll("strong")).filter(
+      (el) => el.textContent === "hands-on financial analysis"
+    );
+    expect(strongEls).toHaveLength(1);
+    expect(container.textContent).not.toContain("**hands-on financial analysis**");
+  });
+
   // -------------------------------------------------------------------------
   // Cycle 9 — career pathway recommendation with confidence and rationale
   // -------------------------------------------------------------------------
@@ -350,6 +374,18 @@ describe("CareerAlumniPage", () => {
     expect(
       screen.getAllByText(/financial analyst pathway|historical outcomes.*87%/i).length
     ).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders career pathway rationale markdown as HTML, not raw syntax", async () => {
+    mockFetch(MOCK_PROFILE);
+    const { default: Page } = await import("./page");
+    const { container } = render(await Page());
+
+    const strongEls = Array.from(container.querySelectorAll("strong")).filter(
+      (el) => el.textContent === "Financial Analyst pathway"
+    );
+    expect(strongEls).toHaveLength(1);
+    expect(container.textContent).not.toContain("**Financial Analyst pathway**");
   });
 
   it("lists career pathway actions with priority", async () => {

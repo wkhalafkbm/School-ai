@@ -1,3 +1,5 @@
+import MarkdownText from "./MarkdownText";
+
 export interface Recommendation {
   action: string;
   confidence: "High" | "Medium" | "Low";
@@ -26,9 +28,9 @@ export default function PathwayRecommendation({ recommendation }: { recommendati
       <p data-testid="recommendation-action" className="mb-2 font-medium text-gray-900">
         {action}
       </p>
-      <p data-testid="rationale" className="text-sm text-gray-600">
-        {rationale}
-      </p>
+      <div data-testid="rationale" className="text-sm text-gray-600">
+        <MarkdownText text={rationale} />
+      </div>
     </div>
   );
 }
