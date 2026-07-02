@@ -63,7 +63,7 @@ const MOCK_PROFILE = {
     ],
     confidence: "High",
     rationale:
-      "Student engagement signals indicate an academic support need. Intervention is recommended based on strong corroborating evidence.",
+      "Student engagement signals indicate an **academic support need**. Intervention is recommended based on strong corroborating evidence.",
   },
   sponsor_escalation: {
     id: "wfl-006",
@@ -75,11 +75,11 @@ const MOCK_PROFILE = {
   },
   engagement_assessment: {
     rationale:
-      "Fahad shows low LMS login frequency and a below-average assignment submission rate over the last 30 days. Early outreach is recommended before engagement drops further.",
+      "Fahad shows **low LMS login frequency** and a below-average assignment submission rate over the last 30 days. Early outreach is recommended before engagement drops further.",
   },
   support_assessment: {
     rationale:
-      "Fahad's current standing warrants continued case oversight. Coordinate with the assigned advisor to track progress toward recovery.",
+      "Fahad's current standing warrants **continued case oversight**. Coordinate with the assigned advisor to track progress toward recovery.",
   },
 };
 
@@ -188,6 +188,22 @@ describe("AcademicRiskPage", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Cycle 4b — engagement assessment rationale renders as markdown
+  // -------------------------------------------------------------------------
+
+  it("renders engagement assessment rationale markdown as HTML, not raw syntax", async () => {
+    mockFetch(MOCK_PROFILE);
+    const { default: Page } = await import("./page");
+    const { container } = render(await Page());
+
+    const strongEls = Array.from(container.querySelectorAll("strong")).filter(
+      (el) => el.textContent === "low LMS login frequency"
+    );
+    expect(strongEls).toHaveLength(1);
+    expect(container.textContent).not.toContain("**low LMS login frequency**");
+  });
+
+  // -------------------------------------------------------------------------
   // Cycle 5 — intervention plan shows confidence label and rationale
   // -------------------------------------------------------------------------
 
@@ -210,11 +226,23 @@ describe("AcademicRiskPage", () => {
   it("shows rationale text", async () => {
     mockFetch(MOCK_PROFILE);
     const { default: Page } = await import("./page");
-    render(await Page());
+    const { container } = render(await Page());
 
-    expect(
-      screen.getByText(/Student engagement signals indicate an academic support need/i)
-    ).toBeInTheDocument();
+    expect(container.textContent).toMatch(
+      /Student engagement signals indicate an academic support need/i
+    );
+  });
+
+  it("renders intervention plan rationale markdown as HTML, not raw syntax", async () => {
+    mockFetch(MOCK_PROFILE);
+    const { default: Page } = await import("./page");
+    const { container } = render(await Page());
+
+    const strongEls = Array.from(container.querySelectorAll("strong")).filter(
+      (el) => el.textContent === "academic support need"
+    );
+    expect(strongEls).toHaveLength(1);
+    expect(container.textContent).not.toContain("**academic support need**");
   });
 
   it("lists intervention actions", async () => {
@@ -252,6 +280,22 @@ describe("AcademicRiskPage", () => {
     render(await Page());
 
     expect(screen.getByText(/Noura Al-Hamdan/i)).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Cycle 6b — support assessment rationale renders as markdown
+  // -------------------------------------------------------------------------
+
+  it("renders support assessment rationale markdown as HTML, not raw syntax", async () => {
+    mockFetch(MOCK_PROFILE);
+    const { default: Page } = await import("./page");
+    const { container } = render(await Page());
+
+    const strongEls = Array.from(container.querySelectorAll("strong")).filter(
+      (el) => el.textContent === "continued case oversight"
+    );
+    expect(strongEls).toHaveLength(1);
+    expect(container.textContent).not.toContain("**continued case oversight**");
   });
 
   // -------------------------------------------------------------------------

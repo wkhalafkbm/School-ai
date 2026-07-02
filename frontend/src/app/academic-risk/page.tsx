@@ -1,4 +1,5 @@
 import StatusBadge from "@/components/StatusBadge";
+import MarkdownText from "@/components/MarkdownText";
 import { StatusCode } from "@/lib/status";
 import AcademicRiskActions from "./AcademicRiskActions";
 
@@ -181,7 +182,9 @@ export default async function AcademicRiskPage() {
         <h2 className="mb-3 text-base font-semibold text-gray-900">
           Engagement &amp; Early Risk Assessment
         </h2>
-        <p className="text-sm text-gray-600">{engagement_assessment.rationale}</p>
+        <div className="text-sm text-gray-600">
+          <MarkdownText text={engagement_assessment.rationale} />
+        </div>
       </section>
 
       {/* AI-generated intervention plan */}
@@ -198,7 +201,9 @@ export default async function AcademicRiskPage() {
             {intervention_plan.confidence} Confidence
           </span>
         </div>
-        <p className="mb-4 text-sm text-gray-600">{intervention_plan.rationale}</p>
+        <div className="mb-4 text-sm text-gray-600">
+          <MarkdownText text={intervention_plan.rationale} />
+        </div>
         <ul className="space-y-2">
           {intervention_plan.actions.map((action) => (
             <li
@@ -244,7 +249,9 @@ export default async function AcademicRiskPage() {
         <h2 className="mb-3 text-base font-semibold text-gray-900">
           Student Support &amp; Case Management
         </h2>
-        <p className="text-sm text-gray-600">{support_assessment.rationale}</p>
+        <div className="text-sm text-gray-600">
+          <MarkdownText text={support_assessment.rationale} />
+        </div>
       </section>
 
       {/* Action */}
