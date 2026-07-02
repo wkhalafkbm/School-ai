@@ -1,7 +1,8 @@
-import os
+import asyncio
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.database import get_db
 from app.evidence import build_evidence
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
+from app.streaming import ResolverFn, resolve_or_fallback, set_nested, stream_profile
 
 router = APIRouter(prefix="/api/career-alumni", tags=["career-alumni"])
 
@@ -28,8 +30,7 @@ async def _live_rationale(payload: dict) -> str | None:
     return run["output"]["result"]
 
 
-@router.get("/profile")
-async def career_alumni_profile(db: Session = Depends(get_db)):
+def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     # --- stage summary: graduate employment outcomes ---
     outcome_rows = db.execute(
         text("""
@@ -202,18 +203,7 @@ async def career_alumni_profile(db: Session = Depends(get_db)):
         },
     ]
 
-    if os.getenv("AI_MODE", "live") != "scripted":
-        live_rationale = await _live_rationale(
-            {
-                "student_id": STUDENT_ID,
-                "electives": electives,
-                "internships": internships,
-            }
-        )
-        if live_rationale:
-            career_pathway_recommendation["rationale"] = live_rationale
-
-    return {
+    base = {
         "stage_summary": {
             "health": "opportunity",
             "placement_rate": round(placement_rate, 2),
@@ -268,3 +258,35 @@ async def career_alumni_profile(db: Session = Depends(get_db)):
         "career_pathway_recommendation": career_pathway_recommendation,
         "career_advisor_item": career_advisor_item,
     }
+
+    async def resolve_rationale() -> str:
+        return await resolve_or_fallback(
+            career_pathway_recommendation["rationale"],
+            lambda: _live_rationale(
+                {
+                    "student_id": STUDENT_ID,
+                    "electives": electives,
+                    "internships": internships,
+                }
+            ),
+        )
+
+    resolvers: dict[str, ResolverFn] = {"career_pathway_recommendation.rationale": resolve_rationale}
+
+    return base, resolvers
+
+
+@router.get("/profile")
+async def career_alumni_profile(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    paths = list(resolvers.keys())
+    values = await asyncio.gather(*(resolvers[path]() for path in paths))
+    for path, value in zip(paths, values):
+        set_nested(base, path, value)
+    return base
+
+
+@router.get("/profile/stream")
+async def career_alumni_profile_stream(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    return StreamingResponse(stream_profile(base, resolvers), media_type="text/event-stream")

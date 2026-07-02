@@ -1,5 +1,9 @@
+"use client";
+
 import StatusBadge from "@/components/StatusBadge";
 import MarkdownText from "@/components/MarkdownText";
+import StreamedField from "@/components/StreamedField";
+import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import { StatusCode } from "@/lib/status";
 import CareerAlumniActions from "./CareerAlumniActions";
 
@@ -91,14 +95,6 @@ interface CareerAlumniProfile {
   career_advisor_item: CareerAdvisorItem | null;
 }
 
-async function fetchProfile(): Promise<CareerAlumniProfile> {
-  const res = await fetch(`${API}/api/career-alumni/profile`, {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`/api/career-alumni/profile → ${res.status}`);
-  return res.json();
-}
-
 const CONFIDENCE_CLASSES: Record<string, string> = {
   High: "bg-green-100 text-green-700",
   Medium: "bg-amber-100 text-amber-700",
@@ -127,7 +123,15 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export default async function CareerAlumniPage() {
+export default function CareerAlumniPage() {
+  const { data, done } = useStreamedProfile<CareerAlumniProfile>(
+    `${API}/api/career-alumni/profile/stream`
+  );
+
+  if (!data) {
+    return <main className="p-6 text-sm text-gray-500">Loading career &amp; alumni profile…</main>;
+  }
+
   const {
     stage_summary,
     student,
@@ -137,7 +141,7 @@ export default async function CareerAlumniPage() {
     outcomes_feedback_loop,
     career_pathway_recommendation,
     career_advisor_item,
-  } = await fetchProfile();
+  } = data;
 
   return (
     <main className="space-y-6 p-6">
@@ -326,7 +330,9 @@ export default async function CareerAlumniPage() {
           </span>
         </div>
         <div className="mb-4 text-sm text-gray-600">
-          <MarkdownText text={career_pathway_recommendation.rationale} />
+          <StreamedField resolved={done}>
+            <MarkdownText text={career_pathway_recommendation.rationale} />
+          </StreamedField>
         </div>
         <ul className="space-y-2">
           {career_pathway_recommendation.actions.map((action) => (

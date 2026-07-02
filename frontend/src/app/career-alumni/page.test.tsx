@@ -1,5 +1,32 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act } from "react";
+import CareerAlumniPage from "./page";
+
+class StubEventSource {
+  static instances: StubEventSource[] = [];
+  listeners: Record<string, ((event: { data: string }) => void)[]> = {};
+  closed = false;
+  onerror: ((event: unknown) => void) | null = null;
+
+  constructor(public url: string) {
+    StubEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, cb: (event: { data: string }) => void) {
+    (this.listeners[type] ??= []).push(cb);
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  emit(type: string, data: unknown) {
+    for (const cb of this.listeners[type] ?? []) {
+      cb({ data: JSON.stringify(data) });
+    }
+  }
+}
 
 const MOCK_PROFILE = {
   stage_summary: {
@@ -108,12 +135,24 @@ const MOCK_PROFILE = {
   career_advisor_item: null,
 };
 
-function mockFetch(data: unknown) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok: true, json: async () => data })
-  );
+function renderResolvedPage(data: unknown = MOCK_PROFILE) {
+  const result = render(<CareerAlumniPage />);
+  const es = StubEventSource.instances[StubEventSource.instances.length - 1];
+
+  act(() => {
+    es.emit("base", data);
+  });
+  act(() => {
+    es.emit("done", {});
+  });
+
+  return result;
 }
+
+beforeEach(() => {
+  StubEventSource.instances = [];
+  vi.stubGlobal("EventSource", StubEventSource);
+});
 
 // ---------------------------------------------------------------------------
 // Cycle 1 — tracer bullet: page renders stage header with health badge
@@ -122,31 +161,61 @@ function mockFetch(data: unknown) {
 describe("CareerAlumniPage", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("renders the Career & Alumni heading and health status", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the Career & Alumni heading and health status", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/career.*alumni/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/opportunity/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows fallback rationale immediately on base, and clears the refining badge on done", () => {
+    render(<CareerAlumniPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+
+    expect(screen.getAllByText(/Financial Analyst pathway/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/AI refining/i)).toHaveLength(1);
+
+    act(() => {
+      es.emit("done", {});
+    });
+
+    expect(screen.queryByText(/AI refining/i)).not.toBeInTheDocument();
+  });
+
+  it("updates the career pathway rationale independently as its field event arrives", () => {
+    render(<CareerAlumniPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+
+    act(() => {
+      es.emit("field", {
+        path: "career_pathway_recommendation.rationale",
+        value: "Live agent: strong pathway fit.",
+      });
+    });
+
+    expect(screen.getByText("Live agent: strong pathway fit.")).toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------
   // Cycle 2 — stage summary shows employment outcome metrics
   // -------------------------------------------------------------------------
 
-  it("shows employment placement rate in stage summary", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows employment placement rate in stage summary", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/87%|placement.*rate/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows employed count and total graduates", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows employed count and total graduates", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/142/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/163/).length).toBeGreaterThanOrEqual(1);
@@ -156,19 +225,15 @@ describe("CareerAlumniPage", () => {
   // Cycle 3 — Omar Al-Mutairi student card
   // -------------------------------------------------------------------------
 
-  it("shows Omar Al-Mutairi's name and program", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows Omar Al-Mutairi's name and program", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/Omar Al-Mutairi/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Business Administration/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows Omar's target role and industry", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows Omar's target role and industry", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/financial analyst/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/banking.*finance/i).length).toBeGreaterThanOrEqual(1);
@@ -178,27 +243,21 @@ describe("CareerAlumniPage", () => {
   // Cycle 4 — skill gaps relative to target career pathway
   // -------------------------------------------------------------------------
 
-  it("renders the skill gap section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the skill gap section", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/skill gap/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("lists identified skill gaps", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("lists identified skill gaps", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/financial modelling/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/data analysis/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows current vs required skill level for gaps", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows current vs required skill level for gaps", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/beginner|intermediate/i).length).toBeGreaterThanOrEqual(2);
   });
@@ -207,38 +266,30 @@ describe("CareerAlumniPage", () => {
   // Cycle 5 — elective recommendations with rationale
   // -------------------------------------------------------------------------
 
-  it("renders recommended electives section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders recommended electives section", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/elective/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows elective course codes and names", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows elective course codes and names", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/BA401/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Advanced Financial Modelling/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/DS201/).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows elective rationale", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows elective rationale", () => {
+    renderResolvedPage();
 
     expect(
       screen.getByText(/directly addresses.*identified gap|financial modelling skills/i)
     ).toBeInTheDocument();
   });
 
-  it("renders elective rationale markdown as HTML, not raw syntax", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    const { container } = render(await Page());
+  it("renders elective rationale markdown as HTML, not raw syntax", () => {
+    const { container } = renderResolvedPage();
 
     const strongEls = Array.from(container.querySelectorAll("strong")).filter(
       (el) => el.textContent === "financial modelling"
@@ -251,27 +302,21 @@ describe("CareerAlumniPage", () => {
   // Cycle 6 — internship recommendations with rationale
   // -------------------------------------------------------------------------
 
-  it("renders recommended internships section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders recommended internships section", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/internship/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows internship company and target semester", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows internship company and target semester", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/National Bank of Kuwait/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Spring 2025/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows internship rationale", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows internship rationale", () => {
+    renderResolvedPage();
 
     expect(
       screen.getAllByText(/aligns with target industry|hands-on financial analysis/i).length
@@ -282,27 +327,21 @@ describe("CareerAlumniPage", () => {
   // Cycle 7 — alumni mentor match with match basis
   // -------------------------------------------------------------------------
 
-  it("renders alumni mentor match section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders alumni mentor match section", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/alumni.*mentor|mentor.*match/i)).toBeInTheDocument();
   });
 
-  it("shows mentor name and current role", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows mentor name and current role", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/Sara Al-Rashidi/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Senior Financial Analyst/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows match basis including shared program, industry, and graduation year", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows match basis including shared program, industry, and graduation year", () => {
+    renderResolvedPage();
 
     expect(
       screen.getByText(/shared program.*industry|graduation cohort/i)
@@ -314,28 +353,22 @@ describe("CareerAlumniPage", () => {
   // Cycle 8 — outcomes feedback loop panel
   // -------------------------------------------------------------------------
 
-  it("renders the outcomes feedback loop panel", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the outcomes feedback loop panel", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/outcomes.*feedback|feedback.*loop/i)).toBeInTheDocument();
   });
 
-  it("explains how graduate employment data improves recommendations", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("explains how graduate employment data improves recommendations", () => {
+    renderResolvedPage();
 
     expect(
       screen.getByText(/recalibrates.*skill-gap|employment outcome data/i)
     ).toBeInTheDocument();
   });
 
-  it("renders internship rationale markdown as HTML, not raw syntax", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    const { container } = render(await Page());
+  it("renders internship rationale markdown as HTML, not raw syntax", () => {
+    const { container } = renderResolvedPage();
 
     const strongEls = Array.from(container.querySelectorAll("strong")).filter(
       (el) => el.textContent === "hands-on financial analysis"
@@ -348,38 +381,30 @@ describe("CareerAlumniPage", () => {
   // Cycle 9 — career pathway recommendation with confidence and rationale
   // -------------------------------------------------------------------------
 
-  it("renders the career pathway recommendation section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the career pathway recommendation section", () => {
+    renderResolvedPage();
 
     expect(
       screen.getAllByText(/career pathway recommendation/i).length
     ).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows confidence label", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows confidence label", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/high confidence/i)).toBeInTheDocument();
   });
 
-  it("shows rationale text", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows rationale text", () => {
+    renderResolvedPage();
 
     expect(
       screen.getAllByText(/financial analyst pathway|historical outcomes.*87%/i).length
     ).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders career pathway rationale markdown as HTML, not raw syntax", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    const { container } = render(await Page());
+  it("renders career pathway rationale markdown as HTML, not raw syntax", () => {
+    const { container } = renderResolvedPage();
 
     const strongEls = Array.from(container.querySelectorAll("strong")).filter(
       (el) => el.textContent === "Financial Analyst pathway"
@@ -388,10 +413,8 @@ describe("CareerAlumniPage", () => {
     expect(container.textContent).not.toContain("**Financial Analyst pathway**");
   });
 
-  it("lists career pathway actions with priority", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("lists career pathway actions with priority", () => {
+    renderResolvedPage();
 
     expect(
       screen.getByText(/BA401.*Advanced Financial Modelling.*next semester|primary skill gap/i)
@@ -402,20 +425,16 @@ describe("CareerAlumniPage", () => {
   // Cycle 10 — "Recommend Career Path" button opens approval modal
   // -------------------------------------------------------------------------
 
-  it("renders the Recommend Career Path button", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the Recommend Career Path button", () => {
+    renderResolvedPage();
 
     expect(
       screen.getByRole("button", { name: /recommend career path/i })
     ).toBeInTheDocument();
   });
 
-  it("clicking Recommend Career Path opens a modal", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("clicking Recommend Career Path opens a modal", () => {
+    renderResolvedPage();
 
     fireEvent.click(screen.getByRole("button", { name: /recommend career path/i }));
 
@@ -425,16 +444,10 @@ describe("CareerAlumniPage", () => {
   });
 
   it("confirming fires one workflow POST owned by career advisor", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => MOCK_PROFILE });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { default: Page } = await import("./page");
-    render(await Page());
-
-    fetchMock.mockClear();
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) });
+    renderResolvedPage();
 
     fireEvent.click(screen.getByRole("button", { name: /recommend career path/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
@@ -452,15 +465,10 @@ describe("CareerAlumniPage", () => {
   });
 
   it("no student outreach POST fires without explicit approval", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue({ ok: true, json: async () => MOCK_PROFILE });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { default: Page } = await import("./page");
-    render(await Page());
-
-    fetchMock.mockClear();
+    renderResolvedPage();
 
     // Open modal but cancel — no POST should fire
     fireEvent.click(screen.getByRole("button", { name: /recommend career path/i }));

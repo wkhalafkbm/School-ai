@@ -1,5 +1,6 @@
 """Tests for the Career & Alumni page API (issue #20)."""
 
+import json
 import os
 from pathlib import Path
 
@@ -340,3 +341,87 @@ def test_career_pathway_recommendation_falls_back_when_ai_mode_live_but_orchestr
     rec = client.get("/api/career-alumni/profile").json()["career_pathway_recommendation"]
 
     assert rec["rationale"]
+
+
+# ---------------------------------------------------------------------------
+# Issue #44 — GET /api/career-alumni/profile/stream (SSE)
+# ---------------------------------------------------------------------------
+
+def _parse_sse_events(raw: str) -> list[tuple[str, dict]]:
+    events = []
+    for block in raw.split("\n\n"):
+        block = block.strip()
+        if not block:
+            continue
+        lines = block.split("\n")
+        event = next(line[len("event: "):] for line in lines if line.startswith("event: "))
+        data = next(line[len("data: "):] for line in lines if line.startswith("data: "))
+        events.append((event, json.loads(data)))
+    return events
+
+
+def test_career_alumni_profile_stream_returns_event_stream_content_type(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "scripted")
+
+    with client.stream("GET", "/api/career-alumni/profile/stream") as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+
+def test_career_alumni_profile_stream_scripted_mode_yields_base_field_done_without_contacting_orchestrate(
+    client, monkeypatch
+):
+    monkeypatch.setenv("AI_MODE", "scripted")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_CAREER", AGENT_CAREER)
+
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        iam_route = router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        with client.stream("GET", "/api/career-alumni/profile/stream") as response:
+            raw = response.read().decode()
+
+    assert not iam_route.called, "scripted mode must not contact IAM/Orchestrate"
+
+    events = _parse_sse_events(raw)
+    assert [event for event, _ in events] == ["base", "field", "done"]
+
+    base_event, field_event, done_event = events
+    fallback_rationale = base_event[1]["career_pathway_recommendation"]["rationale"]
+    assert fallback_rationale
+    assert field_event[1] == {
+        "path": "career_pathway_recommendation.rationale",
+        "value": fallback_rationale,
+    }
+    assert done_event[1] == {}
+
+
+def test_career_alumni_profile_stream_live_mode_field_event_carries_live_rationale(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_CAREER", AGENT_CAREER)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-001"}))
+        router.get(f"{RUNS_URL}/run-001").mock(
+            return_value=httpx.Response(200, json=_completed_run_response("run-001", "Live agent: strong pathway fit."))
+        )
+
+        with client.stream("GET", "/api/career-alumni/profile/stream") as response:
+            raw = response.read().decode()
+
+    events = _parse_sse_events(raw)
+    assert [event for event, _ in events] == ["base", "field", "done"]
+
+    base_event, field_event, _ = events
+    assert base_event[1]["career_pathway_recommendation"]["rationale"]
+    assert field_event[1] == {
+        "path": "career_pathway_recommendation.rationale",
+        "value": "Live agent: strong pathway fit.",
+    }
