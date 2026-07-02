@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import WorkflowList from "./WorkflowList";
+import WorkflowList, { WorkflowItem } from "./WorkflowList";
 
-const ITEMS = [
+const ITEMS: WorkflowItem[] = [
   {
     id: "wfl-001",
     stage: "admissions",

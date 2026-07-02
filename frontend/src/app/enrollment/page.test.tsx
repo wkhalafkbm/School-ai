@@ -223,7 +223,7 @@ describe("EnrollmentPage", () => {
 
     await waitFor(() => {
       const postCalls = fetchMock.mock.calls.filter(
-        ([, opts]: [string, RequestInit]) => opts?.method === "POST"
+        ([, opts]: any[]) => opts?.method === "POST"
       );
       expect(postCalls).toHaveLength(3);
     });
@@ -244,8 +244,8 @@ describe("EnrollmentPage", () => {
 
     await waitFor(() => {
       const postBodies = fetchMock.mock.calls
-        .filter(([, opts]: [string, RequestInit]) => opts?.method === "POST")
-        .map(([, opts]: [string, RequestInit]) => JSON.parse(opts.body as string));
+        .filter(([, opts]: any[]) => opts?.method === "POST")
+        .map(([, opts]: any[]) => JSON.parse(opts.body as string));
       expect(postBodies).toHaveLength(3);
       const roles = postBodies.map((b: { owner_role: string }) => b.owner_role);
       const uniqueRoles = new Set(roles);

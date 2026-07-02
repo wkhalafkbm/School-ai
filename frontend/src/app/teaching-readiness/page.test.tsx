@@ -258,7 +258,7 @@ describe("TeachingReadinessPage", () => {
 
     await waitFor(() => {
       const postCalls = fetchMock.mock.calls.filter(
-        ([, opts]: [string, RequestInit]) => opts?.method === "POST"
+        ([, opts]: any[]) => opts?.method === "POST"
       );
       expect(postCalls).toHaveLength(1);
     });
@@ -279,7 +279,7 @@ describe("TeachingReadinessPage", () => {
 
     await waitFor(() => {
       const postCalls = fetchMock.mock.calls.filter(
-        ([, opts]: [string, RequestInit]) => opts?.method === "POST"
+        ([, opts]: any[]) => opts?.method === "POST"
       );
       expect(postCalls).toHaveLength(1);
       const [url, opts] = postCalls[0];

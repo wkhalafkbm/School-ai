@@ -441,7 +441,7 @@ describe("CareerAlumniPage", () => {
 
     await waitFor(() => {
       const postCalls = fetchMock.mock.calls.filter(
-        ([, opts]: [string, RequestInit]) => opts?.method === "POST"
+        ([, opts]: any[]) => opts?.method === "POST"
       );
       expect(postCalls).toHaveLength(1);
       const body = JSON.parse(postCalls[0][1].body as string);
@@ -468,7 +468,7 @@ describe("CareerAlumniPage", () => {
 
     await waitFor(() => {
       const postCalls = fetchMock.mock.calls.filter(
-        ([, opts]: [string, RequestInit]) => opts?.method === "POST"
+        ([, opts]: any[]) => opts?.method === "POST"
       );
       expect(postCalls).toHaveLength(0);
     });

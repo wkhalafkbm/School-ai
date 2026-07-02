@@ -45,14 +45,16 @@ describe("Enrollment → Workflow Activity integration", () => {
 
     const postedBodies: Record<string, string>[] = [];
 
-    const fetchMock = vi.fn(async (url: string, opts?: RequestInit) => {
-      if (opts?.method === "POST") {
-        postedBodies.push(JSON.parse(opts.body as string));
-        return { ok: true, json: async () => ({ id: `wfl-new-${postedBodies.length}` }) };
+    const fetchMock = vi.fn(
+      async (url: string, opts?: RequestInit): Promise<{ ok: boolean; json: () => Promise<unknown> }> => {
+        if (opts?.method === "POST") {
+          postedBodies.push(JSON.parse(opts.body as string));
+          return { ok: true, json: async () => ({ id: `wfl-new-${postedBodies.length}` }) };
+        }
+        // GET /api/enrollment/profile
+        return { ok: true, json: async () => MOCK_PROFILE };
       }
-      // GET /api/enrollment/profile
-      return { ok: true, json: async () => MOCK_PROFILE };
-    });
+    );
 
     vi.stubGlobal("fetch", fetchMock);
 
