@@ -1,10 +1,14 @@
+"use client";
+
 import AdmissionsStageHeader, { AdmissionsStageSummary } from "@/components/AdmissionsStageHeader";
 import ApplicantCard, { Applicant } from "@/components/ApplicantCard";
 import PathwayRecommendation, { Recommendation } from "@/components/PathwayRecommendation";
 import EvidencePanel, { Evidence } from "@/components/EvidencePanel";
+import StreamedField from "@/components/StreamedField";
+import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import AdmissionsActions from "./AdmissionsActions";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8001";
 
 interface AdmissionsProfile {
   stage_summary: AdmissionsStageSummary;
@@ -13,14 +17,16 @@ interface AdmissionsProfile {
   evidence: Evidence;
 }
 
-async function fetchProfile(): Promise<AdmissionsProfile> {
-  const res = await fetch(`${API}/api/admissions/profile`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`/api/admissions/profile → ${res.status}`);
-  return res.json();
-}
+export default function AdmissionsPage() {
+  const { data, done } = useStreamedProfile<AdmissionsProfile>(
+    `${API}/api/admissions/profile/stream`
+  );
 
-export default async function AdmissionsPage() {
-  const { stage_summary, applicant, recommendation, evidence } = await fetchProfile();
+  if (!data) {
+    return <main className="p-6 text-sm text-gray-500">Loading admissions profile…</main>;
+  }
+
+  const { stage_summary, applicant, recommendation, evidence } = data;
 
   return (
     <main className="space-y-6 p-6">
@@ -28,7 +34,9 @@ export default async function AdmissionsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ApplicantCard applicant={applicant} />
-        <PathwayRecommendation recommendation={recommendation} />
+        <StreamedField resolved={done}>
+          <PathwayRecommendation recommendation={recommendation} />
+        </StreamedField>
       </div>
 
       <EvidencePanel evidence={evidence} />

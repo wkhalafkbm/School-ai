@@ -1,10 +1,19 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import admissions, enrollment, overview, recommendations, workflows
 from app.routers import students, programs, courses, cohorts, faculty, alumni
 from app.routers import teaching_readiness, academic_risk, progression, career_alumni
 
 app = FastAPI(title="University AI Operating Center")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")],
+    allow_methods=["GET"],
+    allow_credentials=False,
+)
 app.include_router(admissions.router)
 app.include_router(enrollment.router)
 app.include_router(overview.router)

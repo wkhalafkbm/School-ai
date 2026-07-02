@@ -1,7 +1,8 @@
-import os
+import asyncio
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.database import get_db
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
 from app.status import StatusCode
+from app.streaming import ResolverFn, resolve_or_fallback, set_nested, stream_profile
 
 router = APIRouter(prefix="/api/admissions", tags=["admissions"])
 
@@ -41,8 +43,7 @@ async def _live_rationale(payload: dict) -> str | None:
     return run["output"]["result"]
 
 
-@router.get("/profile")
-async def admissions_profile(db: Session = Depends(get_db)):
+def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     # --- stage summary ---
     applicant_count = db.execute(
         text("SELECT COUNT(*) FROM students WHERE status = 'applicant'")
@@ -103,18 +104,13 @@ async def admissions_profile(db: Session = Depends(get_db)):
 
     # --- recommendation ---
     confidence = "Medium" if cohort_size >= 5 else "Low"
-    rationale = (
+    fallback_rationale = (
         "Applicant profile aligns with program benchmarks. "
         "Sponsorship eligibility confirmed through KFAS. "
         f"Historical cohort of {cohort_size} similar profiles shows {on_track_pct}% on-track graduation rate."
     )
 
-    if os.getenv("AI_MODE", "live") != "scripted":
-        live_rationale = await _live_rationale({"student_id": STUDENT_ID})
-        if live_rationale:
-            rationale = live_rationale
-
-    return {
+    base = {
         "stage_summary": {
             "health": health,
             "applicant_count": int(applicant_count),
@@ -134,7 +130,7 @@ async def admissions_profile(db: Session = Depends(get_db)):
         "recommendation": {
             "action": "Recommend standard admission pathway",
             "confidence": confidence,
-            "rationale": rationale,
+            "rationale": fallback_rationale,
         },
         "evidence": {
             "graduate_outcomes": [
@@ -148,3 +144,28 @@ async def admissions_profile(db: Session = Depends(get_db)):
             "data_completeness": data_completeness,
         },
     }
+
+    async def resolve_rationale() -> str:
+        return await resolve_or_fallback(
+            fallback_rationale, lambda: _live_rationale({"student_id": STUDENT_ID})
+        )
+
+    resolvers: dict[str, ResolverFn] = {"recommendation.rationale": resolve_rationale}
+
+    return base, resolvers
+
+
+@router.get("/profile")
+async def admissions_profile(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    paths = list(resolvers.keys())
+    values = await asyncio.gather(*(resolvers[path]() for path in paths))
+    for path, value in zip(paths, values):
+        set_nested(base, path, value)
+    return base
+
+
+@router.get("/profile/stream")
+async def admissions_profile_stream(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    return StreamingResponse(stream_profile(base, resolvers), media_type="text/event-stream")
