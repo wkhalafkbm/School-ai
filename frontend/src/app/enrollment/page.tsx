@@ -1,4 +1,8 @@
+"use client";
+
 import StatusBadge from "@/components/StatusBadge";
+import StreamedField from "@/components/StreamedField";
+import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import { StatusCode } from "@/lib/status";
 import EnrollmentActions from "./EnrollmentActions";
 
@@ -50,12 +54,6 @@ interface EnrollmentProfile {
   suggested_schedule: SuggestedSchedule;
 }
 
-async function fetchProfile(): Promise<EnrollmentProfile> {
-  const res = await fetch(`${API}/api/enrollment/profile`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`/api/enrollment/profile → ${res.status}`);
-  return res.json();
-}
-
 const BLOCKER_LABELS: Record<string, string> = {
   financial_aid_hold: "Financial Aid Hold",
   prerequisite: "Prerequisite",
@@ -80,9 +78,16 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export default async function EnrollmentPage() {
-  const { stage_summary, student, registration_blockers, suggested_schedule } =
-    await fetchProfile();
+export default function EnrollmentPage() {
+  const { data, done } = useStreamedProfile<EnrollmentProfile>(
+    `${API}/api/enrollment/profile/stream`
+  );
+
+  if (!data) {
+    return <main className="p-6 text-sm text-gray-500">Loading enrollment profile…</main>;
+  }
+
+  const { stage_summary, student, registration_blockers, suggested_schedule } = data;
 
   return (
     <main className="space-y-6 p-6">
@@ -201,7 +206,9 @@ export default async function EnrollmentPage() {
             </li>
           ))}
         </ul>
-        <p className="text-sm text-gray-600">{suggested_schedule.note}</p>
+        <p className="text-sm text-gray-600">
+          <StreamedField resolved={done}>{suggested_schedule.note}</StreamedField>
+        </p>
       </div>
 
       {/* Action */}

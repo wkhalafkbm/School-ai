@@ -1,5 +1,32 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act } from "react";
+import EnrollmentPage from "./page";
+
+class StubEventSource {
+  static instances: StubEventSource[] = [];
+  listeners: Record<string, ((event: { data: string }) => void)[]> = {};
+  closed = false;
+  onerror: ((event: unknown) => void) | null = null;
+
+  constructor(public url: string) {
+    StubEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, cb: (event: { data: string }) => void) {
+    (this.listeners[type] ??= []).push(cb);
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  emit(type: string, data: unknown) {
+    for (const cb of this.listeners[type] ?? []) {
+      cb({ data: JSON.stringify(data) });
+    }
+  }
+}
 
 const MOCK_PROFILE = {
   stage_summary: {
@@ -42,12 +69,24 @@ const MOCK_PROFILE = {
   },
 };
 
-function mockFetch(data: unknown) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok: true, json: async () => data })
-  );
+function renderResolvedPage(data: unknown = MOCK_PROFILE) {
+  const result = render(<EnrollmentPage />);
+  const es = StubEventSource.instances[StubEventSource.instances.length - 1];
+
+  act(() => {
+    es.emit("base", data);
+  });
+  act(() => {
+    es.emit("done", {});
+  });
+
+  return result;
 }
+
+beforeEach(() => {
+  StubEventSource.instances = [];
+  vi.stubGlobal("EventSource", StubEventSource);
+});
 
 // ---------------------------------------------------------------------------
 // Cycle 1 — tracer bullet: page renders stage header with health
@@ -56,23 +95,55 @@ function mockFetch(data: unknown) {
 describe("EnrollmentPage", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("renders the Enrollment heading and health status", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the Enrollment heading and health status", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("Enrollment")).toBeInTheDocument();
     expect(screen.getByText("Needs Attention")).toBeInTheDocument();
+  });
+
+  it("shows fallback note immediately on base, and clears the refining badge on done", () => {
+    render(<EnrollmentPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+
+    expect(screen.getByText(/Switch MATH101 from section 01/i)).toBeInTheDocument();
+    expect(screen.getByText(/AI refining/i)).toBeInTheDocument();
+
+    act(() => {
+      es.emit("done", {});
+    });
+
+    expect(screen.queryByText(/AI refining/i)).not.toBeInTheDocument();
+  });
+
+  it("updates the suggested schedule note independently as its field event arrives", () => {
+    render(<EnrollmentPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+
+    act(() => {
+      es.emit("field", {
+        path: "suggested_schedule.note",
+        value: "Live agent: switch MATH101 to section 02.",
+      });
+    });
+
+    expect(screen.getByText("Live agent: switch MATH101 to section 02.")).toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------
   // Cycle 2 — stage summary shows registration counts
   // -------------------------------------------------------------------------
 
-  it("shows registration complete, pending, and blocked counts", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows registration complete, pending, and blocked counts", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("28")).toBeInTheDocument();
     expect(screen.getByText("12")).toBeInTheDocument();
@@ -83,19 +154,15 @@ describe("EnrollmentPage", () => {
   // Cycle 3 — student card shows Mariam with onboarding tasks
   // -------------------------------------------------------------------------
 
-  it("shows Mariam Al-Kandari's name and program", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows Mariam Al-Kandari's name and program", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("Mariam Al-Kandari")).toBeInTheDocument();
     expect(screen.getByText("Information Systems")).toBeInTheDocument();
   });
 
-  it("renders onboarding tasks with completion indicators", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders onboarding tasks with completion indicators", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("Submit Photo ID Copy")).toBeInTheDocument();
     expect(screen.getByText("Complete Medical Form")).toBeInTheDocument();
@@ -105,10 +172,8 @@ describe("EnrollmentPage", () => {
   // Cycle 4 — registration blockers listed with types
   // -------------------------------------------------------------------------
 
-  it("lists all six registration blocker types", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("lists all six registration blocker types", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/financial.?aid.?hold/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/prerequisite/i).length).toBeGreaterThanOrEqual(1);
@@ -118,10 +183,8 @@ describe("EnrollmentPage", () => {
     expect(screen.getAllByText(/missing.?document/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows blocker descriptions", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows blocker descriptions", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/Pending tuition payment/i)).toBeInTheDocument();
     expect(screen.getByText(/IS201 requires completion of CS101/i)).toBeInTheDocument();
@@ -131,19 +194,15 @@ describe("EnrollmentPage", () => {
   // Cycle 5 — rules engine results shown, no "confidence" text
   // -------------------------------------------------------------------------
 
-  it("shows rules engine result labels", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows rules engine result labels", () => {
+    renderResolvedPage();
 
     const failLabels = screen.getAllByText(/^fail$/i);
     expect(failLabels.length).toBeGreaterThanOrEqual(6);
   });
 
-  it("does not show confidence labels on blockers", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("does not show confidence labels on blockers", () => {
+    renderResolvedPage();
 
     expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
   });
@@ -152,10 +211,8 @@ describe("EnrollmentPage", () => {
   // Cycle 6 — suggested schedule displayed before the action button
   // -------------------------------------------------------------------------
 
-  it("renders the suggested schedule before the action button", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    const { container } = render(await Page());
+  it("renders the suggested schedule before the action button", () => {
+    const { container } = renderResolvedPage();
 
     const scheduleEl = container.querySelector("[data-testid='suggested-schedule']");
     const actionEl = container.querySelector("[data-testid='validate-schedule-btn']");
@@ -166,10 +223,8 @@ describe("EnrollmentPage", () => {
     expect(all.indexOf(scheduleEl!)).toBeLessThan(all.indexOf(actionEl!));
   });
 
-  it("shows schedule section codes and note", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows schedule section codes and note", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("MATH101-02")).toBeInTheDocument();
     expect(screen.getByText(/Switch MATH101 from section 01/i)).toBeInTheDocument();
@@ -179,20 +234,16 @@ describe("EnrollmentPage", () => {
   // Cycle 7 — "Validate Schedule" button opens approval modal
   // -------------------------------------------------------------------------
 
-  it("renders the Validate Schedule button", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the Validate Schedule button", () => {
+    renderResolvedPage();
 
     expect(
       screen.getByRole("button", { name: /validate schedule/i })
     ).toBeInTheDocument();
   });
 
-  it("clicking Validate Schedule opens an approval modal", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("clicking Validate Schedule opens an approval modal", () => {
+    renderResolvedPage();
 
     const btn = screen.getByRole("button", { name: /validate schedule/i });
     fireEvent.click(btn);
@@ -207,15 +258,10 @@ describe("EnrollmentPage", () => {
   // -------------------------------------------------------------------------
 
   it("confirming approval fires three workflow POST requests", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => MOCK_PROFILE });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { default: Page } = await import("./page");
-    render(await Page());
-
-    // reset call count after initial page fetch
-    fetchMock.mockClear();
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) });
+    renderResolvedPage();
 
     const btn = screen.getByRole("button", { name: /validate schedule/i });
     fireEvent.click(btn);
@@ -230,14 +276,10 @@ describe("EnrollmentPage", () => {
   });
 
   it("the three POST calls target distinct owners", async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => MOCK_PROFILE });
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { default: Page } = await import("./page");
-    render(await Page());
-
-    fetchMock.mockClear();
-    fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) });
+    renderResolvedPage();
 
     fireEvent.click(screen.getByRole("button", { name: /validate schedule/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));

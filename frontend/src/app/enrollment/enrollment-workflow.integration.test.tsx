@@ -6,6 +6,32 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, within, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { act } from "react";
+
+class StubEventSource {
+  static instances: StubEventSource[] = [];
+  listeners: Record<string, ((event: { data: string }) => void)[]> = {};
+  closed = false;
+  onerror: ((event: unknown) => void) | null = null;
+
+  constructor(public url: string) {
+    StubEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, cb: (event: { data: string }) => void) {
+    (this.listeners[type] ??= []).push(cb);
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  emit(type: string, data: unknown) {
+    for (const cb of this.listeners[type] ?? []) {
+      cb({ data: JSON.stringify(data) });
+    }
+  }
+}
 
 const MOCK_PROFILE = {
   stage_summary: {
@@ -51,15 +77,23 @@ describe("Enrollment → Workflow Activity integration", () => {
           postedBodies.push(JSON.parse(opts.body as string));
           return { ok: true, json: async () => ({ id: `wfl-new-${postedBodies.length}` }) };
         }
-        // GET /api/enrollment/profile
-        return { ok: true, json: async () => MOCK_PROFILE };
+        return { ok: true, json: async () => ({}) };
       }
     );
 
     vi.stubGlobal("fetch", fetchMock);
+    StubEventSource.instances = [];
+    vi.stubGlobal("EventSource", StubEventSource);
 
     const { default: EnrollmentPage } = await import("./page");
-    render(await EnrollmentPage());
+    render(<EnrollmentPage />);
+    const es = StubEventSource.instances[0];
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+    act(() => {
+      es.emit("done", {});
+    });
 
     fireEvent.click(screen.getByRole("button", { name: /validate schedule/i }));
     fireEvent.click(screen.getByRole("button", { name: /confirm/i }));

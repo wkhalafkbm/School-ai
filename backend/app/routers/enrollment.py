@@ -1,7 +1,8 @@
-import os
+import asyncio
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.database import get_db
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
 from app.status import StatusCode
+from app.streaming import ResolverFn, resolve_or_fallback, set_nested, stream_profile
 
 router = APIRouter(prefix="/api/enrollment", tags=["enrollment"])
 
@@ -59,8 +61,7 @@ async def _live_rationale(payload: dict) -> str | None:
     return run["output"]["result"]
 
 
-@router.get("/profile")
-async def enrollment_profile(db: Session = Depends(get_db)):
+def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     # --- stage summary ---
     total_enrolled = db.execute(
         text("SELECT COUNT(*) FROM students WHERE status = 'enrolled'")
@@ -300,12 +301,7 @@ async def enrollment_profile(db: Session = Depends(get_db)):
         ),
     }
 
-    if os.getenv("AI_MODE", "live") != "scripted":
-        live_note = await _live_rationale({"student_id": STUDENT_ID})
-        if live_note:
-            suggested_schedule["note"] = live_note
-
-    return {
+    base = {
         "stage_summary": {
             "health": health,
             "registration_complete": int(complete_count),
@@ -323,3 +319,29 @@ async def enrollment_profile(db: Session = Depends(get_db)):
         "registration_blockers": blockers,
         "suggested_schedule": suggested_schedule,
     }
+
+    async def resolve_note() -> str:
+        return await resolve_or_fallback(
+            suggested_schedule["note"],
+            lambda: _live_rationale({"student_id": STUDENT_ID}),
+        )
+
+    resolvers: dict[str, ResolverFn] = {"suggested_schedule.note": resolve_note}
+
+    return base, resolvers
+
+
+@router.get("/profile")
+async def enrollment_profile(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    paths = list(resolvers.keys())
+    values = await asyncio.gather(*(resolvers[path]() for path in paths))
+    for path, value in zip(paths, values):
+        set_nested(base, path, value)
+    return base
+
+
+@router.get("/profile/stream")
+async def enrollment_profile_stream(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    return StreamingResponse(stream_profile(base, resolvers), media_type="text/event-stream")
