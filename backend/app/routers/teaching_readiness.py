@@ -173,11 +173,13 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
             "no immediate rebalancing needed."
         )
 
-    # --- course name ---
-    course_name = db.execute(
-        text("SELECT name FROM courses WHERE id = :cid LIMIT 1"),
+    # --- course name and program (cohort) id ---
+    course_row = db.execute(
+        text("SELECT name, program_id FROM courses WHERE id = :cid LIMIT 1"),
         {"cid": FEATURED_COURSE_ID},
-    ).scalar() or "Introduction to Programming"
+    ).first()
+    course_name = (course_row and course_row[0]) or "Introduction to Programming"
+    course_program_id = course_row and course_row[1]
 
     # --- cohort readiness rationale ---
     weakest = max(assessment_failure_rates, key=lambda r: r["failure_rate"], default=None)
@@ -214,7 +216,8 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
         return await resolve_or_fallback(
             cohort_rationale,
             lambda: _live_rationale(
-                "teaching_readiness_cohort", {"course_id": FEATURED_COURSE_ID}
+                "teaching_readiness_cohort",
+                {"course_id": FEATURED_COURSE_ID, "cohort_id": course_program_id},
             ),
         )
 

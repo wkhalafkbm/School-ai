@@ -376,6 +376,42 @@ def test_cohort_rationale_falls_back_when_run_fails(client, monkeypatch):
     assert "Cohort SLO assessment for CS101" in course["rationale"]
 
 
+# ---------------------------------------------------------------------------
+# Issue #48 — cohort agent payload must include cohort_id (the course's program_id)
+# ---------------------------------------------------------------------------
+
+def test_cohort_agent_payload_includes_cohort_id_matching_course_program_id(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
+    monkeypatch.delenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", raising=False)
+
+    captured_payloads = []
+
+    def capture_run_request(request):
+        body = json.loads(request.content)
+        captured_payloads.append(json.loads(body["message"]["content"]))
+        return httpx.Response(200, json={"run_id": "run-cohort-payload"})
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(side_effect=capture_run_request)
+        router.get(f"{RUNS_URL}/run-cohort-payload").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-cohort-payload", "Live agent: focus on SLO-002 remediation.")
+            )
+        )
+
+        client.get("/api/teaching-readiness/profile")
+
+    assert len(captured_payloads) == 1
+    assert captured_payloads[0]["course_id"] == "crs-001"
+    assert captured_payloads[0]["cohort_id"] == "prog-001"
+
+
 def test_workload_rationale_uses_live_agent_result_when_run_completes(client, monkeypatch):
     monkeypatch.setenv("AI_MODE", "live")
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
