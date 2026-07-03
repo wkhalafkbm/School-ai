@@ -36,7 +36,7 @@ def _readiness_health(overloaded_count: int, avg_score: float) -> str:
     return StatusCode.on_track
 
 
-async def _live_rationale(stage: str, payload: dict) -> str | None:
+async def _live_rationale(stage: str, payload: dict | str) -> str | None:
     try:
         agent_id = get_agent_id(stage)
         token = await iam.get_token()
@@ -217,7 +217,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
             cohort_rationale,
             lambda: _live_rationale(
                 "teaching_readiness_cohort",
-                {"course_id": FEATURED_COURSE_ID, "cohort_id": course_program_id},
+                f"The course_id is {FEATURED_COURSE_ID} and the cohort_id is {course_program_id}.",
             ),
         )
 

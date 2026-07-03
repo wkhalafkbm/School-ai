@@ -380,18 +380,18 @@ def test_cohort_rationale_falls_back_when_run_fails(client, monkeypatch):
 # Issue #48 — cohort agent payload must include cohort_id (the course's program_id)
 # ---------------------------------------------------------------------------
 
-def test_cohort_agent_payload_includes_cohort_id_matching_course_program_id(client, monkeypatch):
+def test_cohort_agent_payload_is_plain_sentence_mentioning_course_and_cohort_ids(client, monkeypatch):
     monkeypatch.setenv("AI_MODE", "live")
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
     monkeypatch.setenv("WXO_API_KEY", "test-key")
     monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
     monkeypatch.delenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", raising=False)
 
-    captured_payloads = []
+    captured_contents = []
 
     def capture_run_request(request):
         body = json.loads(request.content)
-        captured_payloads.append(json.loads(body["message"]["content"]))
+        captured_contents.append(body["message"]["content"])
         return httpx.Response(200, json={"run_id": "run-cohort-payload"})
 
     with respx.mock(assert_all_mocked=True) as router:
@@ -407,9 +407,13 @@ def test_cohort_agent_payload_includes_cohort_id_matching_course_program_id(clie
 
         client.get("/api/teaching-readiness/profile")
 
-    assert len(captured_payloads) == 1
-    assert captured_payloads[0]["course_id"] == "crs-001"
-    assert captured_payloads[0]["cohort_id"] == "prog-001"
+    assert len(captured_contents) == 1
+    content = captured_contents[0]
+    assert not content.strip().startswith("{"), (
+        "content sent to the cohort agent should be a plain sentence, not a raw JSON blob"
+    )
+    assert "crs-001" in content
+    assert "prog-001" in content
 
 
 def test_workload_rationale_uses_live_agent_result_when_run_completes(client, monkeypatch):

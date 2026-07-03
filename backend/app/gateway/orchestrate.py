@@ -7,13 +7,14 @@ import httpx
 POLL_INTERVAL: float = 1.0  # seconds between status checks; override in tests
 
 
-async def start_run(agent_id: str, token: str, payload: dict) -> str:
+async def start_run(agent_id: str, token: str, payload: dict | str) -> str:
+    content = payload if isinstance(payload, str) else json.dumps(payload)
     base = os.environ["WXO_BASE_URL"]
     async with httpx.AsyncClient() as client:
         resp = await client.post(
             f"{base}/v1/orchestrate/runs",
             json={
-                "message": {"role": "user", "content": json.dumps(payload)},
+                "message": {"role": "user", "content": content},
                 "agent_id": agent_id,
                 "capture_logs": False,
             },
