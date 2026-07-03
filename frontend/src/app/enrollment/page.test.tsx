@@ -65,7 +65,7 @@ const MOCK_PROFILE = {
       { course: "MATH101", section: "MATH101-02", days: ["Mon", "Wed"], time: "09:00–10:15", room: "A202" },
       { course: "IS201", section: "IS201-01", days: ["Mon", "Wed"], time: "09:00–10:15", room: "D101", note: "Pending prerequisite clearance" },
     ],
-    note: "Switch MATH101 from section 01 (Sun/Tue) to section 02 (Mon/Wed) to resolve the time conflict with CS101.",
+    note: "Switch MATH101 from section 01 (Sun/Tue) to **section 02 (Mon/Wed)** to resolve the time conflict with CS101.",
   },
 };
 
@@ -228,6 +228,16 @@ describe("EnrollmentPage", () => {
 
     expect(screen.getByText("MATH101-02")).toBeInTheDocument();
     expect(screen.getByText(/Switch MATH101 from section 01/i)).toBeInTheDocument();
+  });
+
+  it("renders suggested schedule note markdown as HTML, not raw syntax", () => {
+    const { container } = renderResolvedPage();
+
+    const strongEls = Array.from(container.querySelectorAll("strong")).filter(
+      (el) => el.textContent === "section 02 (Mon/Wed)"
+    );
+    expect(strongEls).toHaveLength(1);
+    expect(container.textContent).not.toContain("**section 02 (Mon/Wed)**");
   });
 
   // -------------------------------------------------------------------------

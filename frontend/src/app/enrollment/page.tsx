@@ -1,5 +1,6 @@
 "use client";
 
+import MarkdownText from "@/components/MarkdownText";
 import StatusBadge from "@/components/StatusBadge";
 import StreamedField from "@/components/StreamedField";
 import { useStreamedProfile } from "@/lib/useStreamedProfile";
@@ -206,9 +207,11 @@ export default function EnrollmentPage() {
             </li>
           ))}
         </ul>
-        <p className="text-sm text-gray-600">
-          <StreamedField resolved={done}>{suggested_schedule.note}</StreamedField>
-        </p>
+        <div className="text-sm text-gray-600">
+          <StreamedField resolved={done}>
+            <MarkdownText text={suggested_schedule.note} />
+          </StreamedField>
+        </div>
       </div>
 
       {/* Action */}
