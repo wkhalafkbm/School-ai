@@ -1,5 +1,32 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act } from "react";
+import TeachingReadinessPage from "./page";
+
+class StubEventSource {
+  static instances: StubEventSource[] = [];
+  listeners: Record<string, ((event: { data: string }) => void)[]> = {};
+  closed = false;
+  onerror: ((event: unknown) => void) | null = null;
+
+  constructor(public url: string) {
+    StubEventSource.instances.push(this);
+  }
+
+  addEventListener(type: string, cb: (event: { data: string }) => void) {
+    (this.listeners[type] ??= []).push(cb);
+  }
+
+  close() {
+    this.closed = true;
+  }
+
+  emit(type: string, data: unknown) {
+    for (const cb of this.listeners[type] ?? []) {
+      cb({ data: JSON.stringify(data) });
+    }
+  }
+}
 
 const MOCK_PROFILE = {
   stage_summary: {
@@ -10,6 +37,7 @@ const MOCK_PROFILE = {
   featured_course: {
     code: "CS101",
     name: "Introduction to Programming",
+    rationale: "SLO-002 is the area of greatest concern for the incoming CS101 cohort; recommend a mid-semester review.",
     slo_trends: [
       {
         slo_code: "CS101-SLO1",
@@ -66,47 +94,93 @@ const MOCK_PROFILE = {
     },
   ],
   workload_threshold_result: "fail",
+  workload_rationale:
+    "Dr. Ahmed Al-Rashidi exceeds their credit cap and should be reassigned a section before the registration deadline.",
 };
 
-function mockFetch(data: unknown) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok: true, json: async () => data })
-  );
+function renderResolvedPage(data: unknown = MOCK_PROFILE) {
+  const result = render(<TeachingReadinessPage />);
+  const es = StubEventSource.instances[StubEventSource.instances.length - 1];
+
+  act(() => {
+    es.emit("base", data);
+  });
+  act(() => {
+    es.emit("done", {});
+  });
+
+  return result;
 }
 
+beforeEach(() => {
+  StubEventSource.instances = [];
+  vi.stubGlobal("EventSource", StubEventSource);
+});
+
 // ---------------------------------------------------------------------------
-// Cycle 1 — tracer bullet: page renders heading and health badge
+// Cycle 1 — tracer bullet: streamed base+done renders stage header with
+// health badge, and the "AI refining…" badge clears once done
 // ---------------------------------------------------------------------------
 
 describe("TeachingReadinessPage", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("renders the Teaching Readiness heading and health status", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the Teaching Readiness heading and health status", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("Teaching Readiness")).toBeInTheDocument();
     expect(screen.getByText("Needs Attention")).toBeInTheDocument();
+  });
+
+  it("shows fallback text for both rationale fields immediately on base, and clears both refining badges on done", () => {
+    render(<TeachingReadinessPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+
+    expect(screen.getByText(/SLO-002 is the area of greatest concern/i)).toBeInTheDocument();
+    expect(screen.getByText(/exceeds their credit cap/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/AI refining/i)).toHaveLength(2);
+
+    act(() => {
+      es.emit("done", {});
+    });
+
+    expect(screen.queryByText(/AI refining/i)).not.toBeInTheDocument();
+  });
+
+  it("updates a rationale field independently as its field event arrives", () => {
+    render(<TeachingReadinessPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+
+    act(() => {
+      es.emit("field", {
+        path: "workload_rationale",
+        value: "Live agent: reassign one section.",
+      });
+    });
+
+    expect(screen.getByText("Live agent: reassign one section.")).toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------
   // Cycle 2 — stage summary shows aggregate readiness score
   // -------------------------------------------------------------------------
 
-  it("shows the aggregate readiness score", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows the aggregate readiness score", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/72\.5/)).toBeInTheDocument();
   });
 
-  it("shows the cohort size", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows the cohort size", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("30")).toBeInTheDocument();
   });
@@ -115,28 +189,22 @@ describe("TeachingReadinessPage", () => {
   // Cycle 3 — SLO trend table shows CS101 and 3 semester columns
   // -------------------------------------------------------------------------
 
-  it("shows the featured course code CS101", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows the featured course code CS101", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/CS101/).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows the three semester column headers", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows the three semester column headers", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("2023-Fall")).toBeInTheDocument();
     expect(screen.getByText("2024-Spring")).toBeInTheDocument();
     expect(screen.getByText("2024-Fall")).toBeInTheDocument();
   });
 
-  it("shows SLO codes in the trend table", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows SLO codes in the trend table", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText("CS101-SLO1").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("CS101-SLO2").length).toBeGreaterThanOrEqual(1);
@@ -146,27 +214,21 @@ describe("TeachingReadinessPage", () => {
   // Cycle 4 — assessment failure rates per SLO shown
   // -------------------------------------------------------------------------
 
-  it("shows assessment failure rates section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows assessment failure rates section", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/failure rate/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows failure rates for each SLO", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows failure rates for each SLO", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/26\.7%|0\.267/)).toBeInTheDocument();
     expect(screen.getByText(/40\.0%|0\.400/)).toBeInTheDocument();
   });
 
-  it("shows rules engine pass/fail results on failure rates", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows rules engine pass/fail results on failure rates", () => {
+    renderResolvedPage();
 
     expect(screen.getAllByText(/^pass$/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/^fail$/i).length).toBeGreaterThanOrEqual(1);
@@ -176,34 +238,26 @@ describe("TeachingReadinessPage", () => {
   // Cycle 5 — faculty workload table shows Dr. Ahmed as overloaded
   // -------------------------------------------------------------------------
 
-  it("shows faculty workload section", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows faculty workload section", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/faculty workload/i)).toBeInTheDocument();
   });
 
-  it("shows Dr. Ahmed Al-Rashidi in the workload table", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows Dr. Ahmed Al-Rashidi in the workload table", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("Dr. Ahmed Al-Rashidi")).toBeInTheDocument();
   });
 
-  it("flags Dr. Ahmed Al-Rashidi as overloaded with Urgent status", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("flags Dr. Ahmed Al-Rashidi as overloaded with Urgent status", () => {
+    renderResolvedPage();
 
     expect(screen.getByText("Urgent")).toBeInTheDocument();
   });
 
-  it("shows workload threshold as fail", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("shows workload threshold as fail", () => {
+    renderResolvedPage();
 
     expect(screen.getByText(/workload threshold/i)).toBeInTheDocument();
     expect(screen.getAllByText(/^fail$/i).length).toBeGreaterThanOrEqual(1);
@@ -213,10 +267,8 @@ describe("TeachingReadinessPage", () => {
   // Cycle 6 — "Prepare Cohort Brief" button is present
   // -------------------------------------------------------------------------
 
-  it("renders the Prepare Cohort Brief button", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("renders the Prepare Cohort Brief button", () => {
+    renderResolvedPage();
 
     expect(
       screen.getByRole("button", { name: /prepare cohort brief/i })
@@ -227,10 +279,8 @@ describe("TeachingReadinessPage", () => {
   // Cycle 7 — clicking button opens approval modal
   // -------------------------------------------------------------------------
 
-  it("clicking Prepare Cohort Brief opens an approval modal", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("clicking Prepare Cohort Brief opens an approval modal", () => {
+    renderResolvedPage();
 
     fireEvent.click(screen.getByRole("button", { name: /prepare cohort brief/i }));
 
@@ -247,8 +297,7 @@ describe("TeachingReadinessPage", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => MOCK_PROFILE });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { default: Page } = await import("./page");
-    render(await Page());
+    renderResolvedPage();
 
     fetchMock.mockClear();
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) });
@@ -268,8 +317,7 @@ describe("TeachingReadinessPage", () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => MOCK_PROFILE });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { default: Page } = await import("./page");
-    render(await Page());
+    renderResolvedPage();
 
     fetchMock.mockClear();
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) });
@@ -294,10 +342,8 @@ describe("TeachingReadinessPage", () => {
   // Cycle 9 — no "confidence" text anywhere on the page
   // -------------------------------------------------------------------------
 
-  it("does not show confidence labels anywhere on the page", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("does not show confidence labels anywhere on the page", () => {
+    renderResolvedPage();
 
     expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
   });
@@ -306,10 +352,8 @@ describe("TeachingReadinessPage", () => {
   // Cycle 10 — no individual student name/ID (cohort-only view)
   // -------------------------------------------------------------------------
 
-  it("does not show an individual student name or ID", async () => {
-    mockFetch(MOCK_PROFILE);
-    const { default: Page } = await import("./page");
-    render(await Page());
+  it("does not show an individual student name or ID", () => {
+    renderResolvedPage();
 
     expect(screen.queryByText(/stu-\d{3}/i)).not.toBeInTheDocument();
   });

@@ -1,7 +1,8 @@
-import os
+import asyncio
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -9,6 +10,7 @@ from app.database import get_db
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
 from app.status import StatusCode
+from app.streaming import ResolverFn, resolve_or_fallback, set_nested, stream_profile
 
 router = APIRouter(prefix="/api/teaching-readiness", tags=["teaching-readiness"])
 
@@ -47,8 +49,7 @@ async def _live_rationale(stage: str, payload: dict) -> str | None:
     return run["output"]["result"]
 
 
-@router.get("/profile")
-async def teaching_readiness_profile(db: Session = Depends(get_db)):
+def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     # --- cohort size (students enrolled in featured course's current semester) ---
     cohort_size = db.execute(
         text("""
@@ -191,20 +192,7 @@ async def teaching_readiness_profile(db: Session = Depends(get_db)):
             "Recommend adjusting instructional strategy and scheduling a mid-semester cohort review."
         )
 
-    if os.getenv("AI_MODE", "live") != "scripted":
-        live_cohort_rationale = await _live_rationale(
-            "teaching_readiness_cohort", {"course_id": FEATURED_COURSE_ID}
-        )
-        if live_cohort_rationale:
-            cohort_rationale = live_cohort_rationale
-
-        live_workload_rationale = await _live_rationale(
-            "teaching_readiness_workload", {"course_id": FEATURED_COURSE_ID}
-        )
-        if live_workload_rationale:
-            workload_rationale = live_workload_rationale
-
-    return {
+    base = {
         "stage_summary": {
             "health": _readiness_health(overloaded_count, aggregate_readiness_score),
             "cohort_size": cohort_size,
@@ -221,3 +209,42 @@ async def teaching_readiness_profile(db: Session = Depends(get_db)):
         "workload_threshold_result": workload_threshold_result,
         "workload_rationale": workload_rationale,
     }
+
+    async def resolve_cohort_rationale() -> str:
+        return await resolve_or_fallback(
+            cohort_rationale,
+            lambda: _live_rationale(
+                "teaching_readiness_cohort", {"course_id": FEATURED_COURSE_ID}
+            ),
+        )
+
+    async def resolve_workload_rationale() -> str:
+        return await resolve_or_fallback(
+            workload_rationale,
+            lambda: _live_rationale(
+                "teaching_readiness_workload", {"course_id": FEATURED_COURSE_ID}
+            ),
+        )
+
+    resolvers: dict[str, ResolverFn] = {
+        "featured_course.rationale": resolve_cohort_rationale,
+        "workload_rationale": resolve_workload_rationale,
+    }
+
+    return base, resolvers
+
+
+@router.get("/profile")
+async def teaching_readiness_profile(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    paths = list(resolvers.keys())
+    values = await asyncio.gather(*(resolvers[path]() for path in paths))
+    for path, value in zip(paths, values):
+        set_nested(base, path, value)
+    return base
+
+
+@router.get("/profile/stream")
+async def teaching_readiness_profile_stream(db: Session = Depends(get_db)):
+    base, resolvers = _build_profile(db)
+    return StreamingResponse(stream_profile(base, resolvers), media_type="text/event-stream")

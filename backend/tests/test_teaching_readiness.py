@@ -1,5 +1,7 @@
 """Tests for the Teaching Readiness page API (issue #14)."""
 
+import asyncio
+import json
 import os
 from pathlib import Path
 
@@ -467,3 +469,205 @@ def test_scripted_mode_never_contacts_orchestrate_for_readiness(client, monkeypa
     assert not iam_route.called, "scripted mode must not contact IAM/Orchestrate"
     assert "Cohort SLO assessment for CS101" in data["featured_course"]["rationale"]
     assert "Faculty workload" in data["workload_rationale"]
+
+
+# ---------------------------------------------------------------------------
+# Issue #46 — GET /api/teaching-readiness/profile/stream (SSE)
+# ---------------------------------------------------------------------------
+
+def _parse_sse_events(raw: str) -> list[tuple[str, dict]]:
+    events = []
+    for block in raw.split("\n\n"):
+        block = block.strip()
+        if not block:
+            continue
+        lines = block.split("\n")
+        event = next(line[len("event: "):] for line in lines if line.startswith("event: "))
+        data = next(line[len("data: "):] for line in lines if line.startswith("data: "))
+        events.append((event, json.loads(data)))
+    return events
+
+
+def test_teaching_readiness_profile_stream_returns_event_stream_content_type(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "scripted")
+
+    with client.stream("GET", "/api/teaching-readiness/profile/stream") as response:
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/event-stream")
+
+
+def test_teaching_readiness_profile_stream_scripted_mode_yields_base_two_fields_done_without_contacting_orchestrate(
+    client, monkeypatch
+):
+    monkeypatch.setenv("AI_MODE", "scripted")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", AGENT_WORKLOAD)
+
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        iam_route = router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        with client.stream("GET", "/api/teaching-readiness/profile/stream") as response:
+            raw = response.read().decode()
+
+    assert not iam_route.called, "scripted mode must not contact IAM/Orchestrate"
+
+    events = _parse_sse_events(raw)
+    assert [event for event, _ in events] == ["base", "field", "field", "done"]
+
+    base_data = events[0][1]
+    field_events = events[1:3]
+    done_event = events[3]
+
+    assert "Cohort SLO assessment for CS101" in base_data["featured_course"]["rationale"]
+    assert "Faculty workload" in base_data["workload_rationale"]
+
+    field_paths = {event_data["path"] for _, event_data in field_events}
+    assert field_paths == {"featured_course.rationale", "workload_rationale"}
+
+    field_values_by_path = {event_data["path"]: event_data["value"] for _, event_data in field_events}
+    assert field_values_by_path["featured_course.rationale"] == base_data["featured_course"]["rationale"]
+    assert field_values_by_path["workload_rationale"] == base_data["workload_rationale"]
+
+    assert done_event[1] == {}
+
+
+def test_teaching_readiness_profile_stream_live_mode_field_events_carry_live_rationale(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", AGENT_WORKLOAD)
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_COHORT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-cohort-stream"})
+        )
+        router.get(f"{RUNS_URL}/run-cohort-stream").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-cohort-stream", "Live agent: focus on SLO-002 remediation.")
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_WORKLOAD).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-workload-stream"})
+        )
+        router.get(f"{RUNS_URL}/run-workload-stream").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-workload-stream", "Live agent: reassign one section.")
+            )
+        )
+
+        with client.stream("GET", "/api/teaching-readiness/profile/stream") as response:
+            raw = response.read().decode()
+
+    events = _parse_sse_events(raw)
+    assert [event for event, _ in events] == ["base", "field", "field", "done"]
+
+    field_values_by_path = {event_data["path"]: event_data["value"] for _, event_data in events[1:3]}
+    assert field_values_by_path == {
+        "featured_course.rationale": "Live agent: focus on SLO-002 remediation.",
+        "workload_rationale": "Live agent: reassign one section.",
+    }
+
+
+def test_teaching_readiness_profile_stream_field_events_arrive_in_completion_order(client, monkeypatch):
+    # Declared first (cohort) is the slowest and must still complete last;
+    # declared last (workload) is the fastest and must still complete first.
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", AGENT_WORKLOAD)
+
+    async def delayed_completed_run(delay, run_id, text):
+        await asyncio.sleep(delay)
+        return httpx.Response(200, json=_completed_run_response(run_id, text))
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_COHORT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-cohort-order"})
+        )
+        router.get(f"{RUNS_URL}/run-cohort-order").mock(
+            side_effect=lambda request: delayed_completed_run(
+                0.4, "run-cohort-order", "Live agent: focus on SLO-002 remediation."
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_WORKLOAD).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-workload-order"})
+        )
+        router.get(f"{RUNS_URL}/run-workload-order").mock(
+            side_effect=lambda request: delayed_completed_run(
+                0.0, "run-workload-order", "Live agent: reassign one section."
+            )
+        )
+
+        with client.stream("GET", "/api/teaching-readiness/profile/stream") as response:
+            raw = response.read().decode()
+
+    events = _parse_sse_events(raw)
+    field_paths_in_order = [event_data["path"] for event, event_data in events if event == "field"]
+
+    assert field_paths_in_order == [
+        "workload_rationale",
+        "featured_course.rationale",
+    ], "field events must arrive in completion order, not declaration order"
+
+
+# ---------------------------------------------------------------------------
+# Cycle — /profile computes the two gateway calls concurrently, not sequentially
+# ---------------------------------------------------------------------------
+
+CALL_DELAY = 0.3
+
+
+def test_profile_resolves_the_two_gateway_calls_concurrently(client, monkeypatch):
+    import time
+
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_COHORT", AGENT_COHORT)
+    monkeypatch.setenv("AGENT_ID_TEACHING_READINESS_WORKLOAD", AGENT_WORKLOAD)
+
+    async def slow_completed_run(request, run_id, text):
+        await asyncio.sleep(CALL_DELAY)
+        return httpx.Response(200, json=_completed_run_response(run_id, text))
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_COHORT).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-cohort-timing"})
+        )
+        router.get(f"{RUNS_URL}/run-cohort-timing").mock(
+            side_effect=lambda request: slow_completed_run(
+                request, "run-cohort-timing", "Live agent: focus on SLO-002 remediation."
+            )
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_WORKLOAD).mock(
+            return_value=httpx.Response(200, json={"run_id": "run-workload-timing"})
+        )
+        router.get(f"{RUNS_URL}/run-workload-timing").mock(
+            side_effect=lambda request: slow_completed_run(
+                request, "run-workload-timing", "Live agent: reassign one section."
+            )
+        )
+
+        start = time.perf_counter()
+        response = client.get("/api/teaching-readiness/profile")
+        elapsed = time.perf_counter() - start
+
+    assert response.status_code == 200
+    assert elapsed < 2 * CALL_DELAY, (
+        f"Expected concurrent gateway calls (~{CALL_DELAY}s), took {elapsed:.2f}s — "
+        "looks sequential (~2x call duration)"
+    )

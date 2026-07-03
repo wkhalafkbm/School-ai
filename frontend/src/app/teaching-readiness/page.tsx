@@ -1,4 +1,9 @@
+"use client";
+
 import StatusBadge from "@/components/StatusBadge";
+import MarkdownText from "@/components/MarkdownText";
+import StreamedField from "@/components/StreamedField";
+import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import { StatusCode } from "@/lib/status";
 import TeachingReadinessActions from "./TeachingReadinessActions";
 
@@ -42,22 +47,31 @@ interface TeachingReadinessProfile {
     code: string;
     name: string;
     slo_trends: SloTrend[];
+    rationale: string;
   };
   assessment_failure_rates: AssessmentFailureRate[];
   faculty_workload: FacultyWorkload[];
   workload_threshold_result: string;
+  workload_rationale: string;
 }
 
-async function fetchProfile(): Promise<TeachingReadinessProfile> {
-  const res = await fetch(`${API}/api/teaching-readiness/profile`, {
-    cache: "no-store",
-  });
-  return res.json();
-}
+export default function TeachingReadinessPage() {
+  const { data, done } = useStreamedProfile<TeachingReadinessProfile>(
+    `${API}/api/teaching-readiness/profile/stream`
+  );
 
-export default async function TeachingReadinessPage() {
-  const data = await fetchProfile();
-  const { stage_summary, featured_course, assessment_failure_rates, faculty_workload, workload_threshold_result } = data;
+  if (!data) {
+    return <main className="p-6 text-sm text-gray-500">Loading teaching readiness profile…</main>;
+  }
+
+  const {
+    stage_summary,
+    featured_course,
+    assessment_failure_rates,
+    faculty_workload,
+    workload_threshold_result,
+    workload_rationale,
+  } = data;
   const semesters = featured_course.slo_trends[0]?.semesters.map((s) => s.semester) ?? [];
 
   return (
@@ -99,6 +113,11 @@ export default async function TeachingReadinessPage() {
         <h2 className="mb-3 text-sm font-semibold text-gray-700">
           SLO Achievement Trends — {featured_course.code}: {featured_course.name}
         </h2>
+        <div className="mb-3 text-sm text-gray-600">
+          <StreamedField resolved={done}>
+            <MarkdownText text={featured_course.rationale} />
+          </StreamedField>
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
@@ -165,6 +184,11 @@ export default async function TeachingReadinessPage() {
       {/* Faculty Workload */}
       <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="mb-3 text-sm font-semibold text-gray-700">Faculty Workload Distribution</h2>
+        <div className="mb-3 text-sm text-gray-600">
+          <StreamedField resolved={done}>
+            <MarkdownText text={workload_rationale} />
+          </StreamedField>
+        </div>
         <table className="min-w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
