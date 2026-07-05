@@ -12,7 +12,7 @@ import yaml
 AGENTS_DIR = Path(__file__).parent.parent.parent / "orchestrate" / "agents"
 TOOLS_DIR = Path(__file__).parent.parent.parent / "orchestrate" / "tools"
 
-READ_TOOLS_PATH = TOOLS_DIR / "read_tools.yaml"
+READ_TOOLS_PATHS = sorted((TOOLS_DIR / "read").glob("*.yaml"))
 WRITE_TOOLS_PATH = TOOLS_DIR / "write_tools.yaml"
 
 REQUIRED_ADK_FIELDS = {"spec_version", "kind", "name", "description", "instructions", "llm", "style", "tools"}
@@ -33,14 +33,14 @@ NINE_AGENT_FILES = [
 
 
 def _load_valid_operationids() -> set[str]:
-    """Return all operationIds from read_tools.yaml and write_tools.yaml.
+    """Return all operationIds from orchestrate/tools/read/*.yaml and write_tools.yaml.
 
     Orchestrate normalises double underscores to single when registering OpenAPI
     tools (FastAPI path params produce __param__ in operationIds). We store both
     the raw operationId and the normalised form so agent YAMLs can use either.
     """
     ids: set[str] = set()
-    for spec_path in (READ_TOOLS_PATH, WRITE_TOOLS_PATH):
+    for spec_path in (*READ_TOOLS_PATHS, WRITE_TOOLS_PATH):
         spec = yaml.safe_load(spec_path.read_text())
         for _path, methods in spec.get("paths", {}).items():
             for _method, op in methods.items():
@@ -211,4 +211,51 @@ def test_agent_has_nonempty_tools_list(filename):
     tools = data.get("tools", [])
     assert isinstance(tools, list) and len(tools) > 0, (
         f"{filename}: tools must be a non-empty list"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Cycle 9 — admissions agent must call create_workflow_item, not narrate it
+# (issue #50: live trace showed a "Workflow Items Created" table with
+# fabricated ids while zero create_workflow_item calls were made)
+# ---------------------------------------------------------------------------
+
+
+def test_admissions_agent_instructions_name_workflow_tool_explicitly():
+    data = yaml.safe_load((AGENTS_DIR / "admissions_agent.yaml").read_text())
+    assert "create_workflow_item" in data["instructions"], (
+        "admissions_agent.yaml instructions must name the create_workflow_item "
+        "tool explicitly rather than only describing the action in prose"
+    )
+
+
+def test_admissions_agent_instructions_forbid_claiming_uncalled_workflow_items():
+    data = yaml.safe_load((AGENTS_DIR / "admissions_agent.yaml").read_text())
+    instructions_lower = data["instructions"].lower()
+    assert "do not claim" in instructions_lower and "created" in instructions_lower, (
+        "admissions_agent.yaml instructions must explicitly forbid claiming a "
+        "workflow item was created, queued, or logged unless the tool was "
+        "actually called"
+    )
+
+
+def test_admissions_agent_instructions_require_real_tool_returned_id():
+    data = yaml.safe_load((AGENTS_DIR / "admissions_agent.yaml").read_text())
+    instructions_lower = data["instructions"].lower()
+    assert "rather than inventing" in instructions_lower, (
+        "admissions_agent.yaml instructions must require quoting the id "
+        "returned by create_workflow_item rather than inventing one, to "
+        "prevent fabricated ids like '(auto-generated)'"
+    )
+
+
+def test_admissions_agent_instructions_have_pre_response_self_check():
+    data = yaml.safe_load((AGENTS_DIR / "admissions_agent.yaml").read_text())
+    instructions_lower = data["instructions"].lower()
+    assert "before you send your final response" in instructions_lower, (
+        "admissions_agent.yaml instructions must include a pre-response "
+        "self-check requiring create_workflow_item to have already been "
+        "called and returned before mentioning any workflow item — live "
+        "testing showed the model sometimes skips the tool call after a "
+        "long chain of read-tool calls and narrates the action instead"
     )
