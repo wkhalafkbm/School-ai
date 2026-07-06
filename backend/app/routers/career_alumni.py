@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/career-alumni", tags=["career-alumni"])
 STUDENT_ID = "stu-005"
 
 
-async def _live_rationale(payload: dict) -> str | None:
+async def _live_rationale(payload: dict | str) -> str | None:
     try:
         agent_id = get_agent_id("career")
         token = await iam.get_token()
@@ -262,13 +262,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     async def resolve_rationale() -> str:
         return await resolve_or_fallback(
             career_pathway_recommendation["rationale"],
-            lambda: _live_rationale(
-                {
-                    "student_id": STUDENT_ID,
-                    "electives": electives,
-                    "internships": internships,
-                }
-            ),
+            lambda: _live_rationale(f"The student_id is {STUDENT_ID}."),
         )
 
     resolvers: dict[str, ResolverFn] = {"career_pathway_recommendation.rationale": resolve_rationale}

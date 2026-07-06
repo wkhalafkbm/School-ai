@@ -275,6 +275,46 @@ def test_career_pathway_recommendation_uses_live_agent_rationale_when_run_comple
     assert rec["rationale"] == "Live agent: strong pathway fit."
 
 
+# ---------------------------------------------------------------------------
+# Issue #51 — career agent payload must not embed nested electives/internships JSON
+# ---------------------------------------------------------------------------
+
+def test_career_agent_payload_is_plain_sentence_without_electives_or_internships(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_CAREER", AGENT_CAREER)
+
+    captured_contents = []
+
+    def capture_run_request(request):
+        body = json.loads(request.content)
+        captured_contents.append(body["message"]["content"])
+        return httpx.Response(200, json={"run_id": "run-career-payload"})
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(side_effect=capture_run_request)
+        router.get(f"{RUNS_URL}/run-career-payload").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-career-payload", "Live agent: strong pathway fit.")
+            )
+        )
+
+        client.get("/api/career-alumni/profile")
+
+    assert len(captured_contents) == 1
+    content = captured_contents[0]
+    assert not content.strip().startswith("{"), (
+        "content sent to the career agent should be a plain sentence, not a raw JSON blob"
+    )
+    assert "stu-005" in content
+    assert "electives" not in content
+    assert "internships" not in content
+
+
 def test_career_pathway_recommendation_falls_back_when_run_fails(client, monkeypatch):
     monkeypatch.setenv("AI_MODE", "live")
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
