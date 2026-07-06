@@ -445,6 +445,49 @@ def test_graduation_risk_summary_falls_back_to_computed_rationale_when_run_fails
     assert "LMS engagement data is unavailable for this student" in summary["rationale"]
 
 
+# ---------------------------------------------------------------------------
+# Issue #52 — progression agent payload must be a plain sentence carrying the
+# student's program_id (cohort_id), not a bare student_id the agent must guess from
+# ---------------------------------------------------------------------------
+
+def test_progression_agent_payload_is_plain_sentence_with_student_and_program_ids(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_PROGRESSION", AGENT_PROGRESSION)
+
+    captured_contents = []
+
+    def capture_run_request(request):
+        body = json.loads(request.content)
+        captured_contents.append(body["message"]["content"])
+        return httpx.Response(200, json={"run_id": "run-progression-payload"})
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(side_effect=capture_run_request)
+        router.get(f"{RUNS_URL}/run-progression-payload").mock(
+            return_value=httpx.Response(
+                200,
+                json=_completed_run_response(
+                    "run-progression-payload", "Live agent: graduation on track with plan update."
+                ),
+            )
+        )
+
+        client.get("/api/progression/profile")
+
+    assert len(captured_contents) == 1
+    content = captured_contents[0]
+    assert not content.strip().startswith("{"), (
+        "content sent to the progression agent should be a plain sentence, not a raw JSON blob"
+    )
+    assert "stu-004" in content
+    assert "prog-001" in content
+
+
 def test_graduation_risk_summary_falls_back_to_computed_rationale_when_run_times_out(client, monkeypatch):
     monkeypatch.setenv("AI_MODE", "live")
     monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)

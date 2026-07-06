@@ -427,6 +427,48 @@ def test_intervention_rationale_falls_back_when_run_fails(client, monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# Issue #52 — intervention agent payload must be a plain sentence carrying the
+# student's cohort_id (program_id), not a bare student_id the agent must guess from
+# ---------------------------------------------------------------------------
+
+def test_intervention_agent_payload_is_plain_sentence_with_student_and_cohort_ids(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_RISK_INTERVENTION", AGENT_INTERVENTION)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_ENGAGEMENT", raising=False)
+    monkeypatch.delenv("AGENT_ID_ACADEMIC_RISK_SUPPORT", raising=False)
+
+    captured_contents = []
+
+    def capture_run_request(request):
+        body = json.loads(request.content)
+        captured_contents.append(body["message"]["content"])
+        return httpx.Response(200, json={"run_id": "run-intervention-payload"})
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL, json__agent_id=AGENT_INTERVENTION).mock(side_effect=capture_run_request)
+        router.get(f"{RUNS_URL}/run-intervention-payload").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-intervention-payload", "Live agent: schedule tutoring now.")
+            )
+        )
+
+        client.get("/api/academic-risk/profile")
+
+    assert len(captured_contents) == 1
+    content = captured_contents[0]
+    assert not content.strip().startswith("{"), (
+        "content sent to the intervention agent should be a plain sentence, not a raw JSON blob"
+    )
+    assert "stu-003" in content
+    assert "prog-001" in content
+
+
+# ---------------------------------------------------------------------------
 # Cycle 11 — engagement agent: live success / live failure falls back
 # ---------------------------------------------------------------------------
 

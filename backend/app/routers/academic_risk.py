@@ -45,7 +45,7 @@ def _attrition_risk(avg_login: float, avg_submission: float) -> str:
     return StatusCode.watch
 
 
-async def _live_rationale(stage: str, payload: dict) -> str | None:
+async def _live_rationale(stage: str, payload: dict | str) -> str | None:
     try:
         agent_id = get_agent_id(stage)
         token = await iam.get_token()
@@ -91,7 +91,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     student_row = db.execute(
         text("""
             SELECT s.id, s.name, s.year_level, s.gpa,
-                   p.name AS program_name
+                   p.id AS program_id, p.name AS program_name
             FROM students s
             JOIN programs p ON p.id = s.program_id
             WHERE s.id = :sid
@@ -269,7 +269,10 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     async def resolve_intervention_rationale() -> str:
         return await resolve_or_fallback(
             intervention_plan["rationale"],
-            lambda: _live_rationale("academic_risk_intervention", {"student_id": STUDENT_ID}),
+            lambda: _live_rationale(
+                "academic_risk_intervention",
+                f"The student_id is {STUDENT_ID} and the cohort_id is {student_row.program_id}.",
+            ),
         )
 
     async def resolve_engagement_rationale() -> str:

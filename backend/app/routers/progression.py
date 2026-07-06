@@ -34,7 +34,7 @@ def _progression_health(at_risk: int, total: int) -> str:
     return StatusCode.on_track
 
 
-async def _live_rationale(payload: dict) -> str | None:
+async def _live_rationale(payload: dict | str) -> str | None:
     try:
         agent_id = get_agent_id("progression")
         token = await iam.get_token()
@@ -65,7 +65,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     student_row = db.execute(
         text("""
             SELECT s.id, s.name, s.year_level, s.gpa,
-                   p.name AS program_name
+                   p.id AS program_id, p.name AS program_name
             FROM students s
             JOIN programs p ON p.id = s.program_id
             WHERE s.id = :sid
@@ -292,7 +292,9 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     async def resolve_rationale() -> str:
         return await resolve_or_fallback(
             graduation_risk_summary["rationale"],
-            lambda: _live_rationale({"student_id": STUDENT_ID}),
+            lambda: _live_rationale(
+                f"The student_id is {STUDENT_ID} and the cohort_id is {student_row.program_id}."
+            ),
         )
 
     resolvers: dict[str, ResolverFn] = {"graduation_risk_summary.rationale": resolve_rationale}
