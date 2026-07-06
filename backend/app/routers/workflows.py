@@ -1,3 +1,6 @@
+import hashlib
+import json
+import time
 import uuid
 from datetime import date
 from typing import Optional
@@ -10,6 +13,12 @@ from app.database import get_db
 from app.models import WorkflowItem
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
+
+# Suppresses duplicate create_workflow_item tool calls an agent makes within a
+# single run (see issue #53). Keyed on a hash of the request body since the
+# Orchestrate write-tool contract carries no run/session identifier.
+_DEDUPE_WINDOW_SECONDS = 300
+_recent_creates: dict[str, tuple[str, float]] = {}
 
 
 class WorkflowItemResponse(BaseModel):
@@ -49,6 +58,19 @@ def list_workflows(db: Session = Depends(get_db)):
 
 @router.post("", response_model=WorkflowItemResponse, status_code=201)
 def create_workflow_item(body: WorkflowItemCreate, db: Session = Depends(get_db)):
+    now = time.monotonic()
+    for cached_key, (_, created_at) in list(_recent_creates.items()):
+        if now - created_at > _DEDUPE_WINDOW_SECONDS:
+            del _recent_creates[cached_key]
+
+    key = hashlib.sha256(
+        json.dumps(body.model_dump(mode="json"), sort_keys=True).encode()
+    ).hexdigest()
+
+    cached = _recent_creates.get(key)
+    if cached is not None:
+        return db.query(WorkflowItem).filter(WorkflowItem.id == cached[0]).first()
+
     item = WorkflowItem(
         id=str(uuid.uuid4()),
         stage=body.stage,
@@ -64,6 +86,8 @@ def create_workflow_item(body: WorkflowItemCreate, db: Session = Depends(get_db)
     db.add(item)
     db.commit()
     db.refresh(item)
+
+    _recent_creates[key] = (item.id, now)
     return item
 
 

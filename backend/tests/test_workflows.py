@@ -1,6 +1,7 @@
 """Tests for the Workflow Orchestration Gateway (issue #9)."""
 
 import os
+import time
 import uuid
 from pathlib import Path
 
@@ -282,6 +283,95 @@ def test_orchestrate_agent_callback_persists_item(client):
 # ---------------------------------------------------------------------------
 # Cycle 7 — All 7 required owner roles are present in seeded fixture data
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Cycle 8 — Duplicate-suppression at the gateway (issue #53)
+# ---------------------------------------------------------------------------
+
+def test_duplicate_create_workflow_item_returns_same_id(client):
+    payload = {
+        "stage": "career",
+        "trigger": "Mentor match recommendation for Omar Al-Mutairi",
+        "owner_name": "Sara Al-Rashidi",
+        "owner_role": "career advisor",
+        "status": "pending",
+        "description": (
+            "Facilitate mentor introduction between Omar Al-Mutairi and "
+            "Eng. Noura Al-Ghanim (FinTech Data Scientist) and schedule initial meeting."
+        ),
+        "student_id": "stu-005",
+    }
+
+    first = client.post("/api/workflows", json=payload)
+    second = client.post("/api/workflows", json=payload)
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert second.json()["id"] == first.json()["id"]
+
+
+def test_duplicate_create_workflow_item_does_not_create_second_row(client):
+    payload = {
+        "stage": "career",
+        "trigger": "Mentor match recommendation for Layla Al-Sabah",
+        "owner_name": "Sara Al-Rashidi",
+        "owner_role": "career advisor",
+        "status": "pending",
+        "description": "Facilitate mentor introduction between Layla Al-Sabah and Eng. Huda Al-Otaibi.",
+        "student_id": "stu-006",
+    }
+
+    client.post("/api/workflows", json=payload)
+    client.post("/api/workflows", json=payload)
+
+    items = client.get("/api/workflows").json()
+    matches = [item for item in items if item["trigger"] == payload["trigger"]]
+    assert len(matches) == 1
+
+
+def test_workflow_items_differing_by_a_field_are_not_deduped(client):
+    base_payload = {
+        "stage": "career",
+        "trigger": "Mentor match recommendation for Yousef Al-Harbi",
+        "owner_name": "Sara Al-Rashidi",
+        "owner_role": "career advisor",
+        "status": "pending",
+        "description": "Facilitate mentor introduction between Yousef Al-Harbi and Eng. Fatima Al-Zahrani.",
+        "student_id": "stu-007",
+    }
+    other_payload = {**base_payload, "student_id": "stu-008"}
+
+    first = client.post("/api/workflows", json=base_payload)
+    second = client.post("/api/workflows", json=other_payload)
+
+    assert first.json()["id"] != second.json()["id"]
+
+    items = client.get("/api/workflows").json()
+    matches = [item for item in items if item["trigger"] == base_payload["trigger"]]
+    assert len(matches) == 2
+
+
+def test_duplicate_after_dedupe_window_expires_creates_new_item(client, monkeypatch):
+    from app.routers import workflows
+
+    monkeypatch.setattr(workflows, "_DEDUPE_WINDOW_SECONDS", 0.05)
+
+    payload = {
+        "stage": "career",
+        "trigger": "Mentor match recommendation for Reem Al-Dosari",
+        "owner_name": "Sara Al-Rashidi",
+        "owner_role": "career advisor",
+        "status": "pending",
+        "description": "Facilitate mentor introduction between Reem Al-Dosari and Eng. Maha Al-Qahtani.",
+        "student_id": "stu-009",
+    }
+
+    first = client.post("/api/workflows", json=payload)
+    time.sleep(0.1)
+    second = client.post("/api/workflows", json=payload)
+
+    assert first.json()["id"] != second.json()["id"]
+
 
 def test_all_seven_owner_roles_present_in_seed(client):
     data = client.get("/api/workflows").json()
