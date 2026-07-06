@@ -10,6 +10,7 @@ from app.database import get_db
 from app.evidence import build_evidence
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
+from app.routers.alumni import get_matched_mentor
 from app.streaming import ResolverFn, resolve_or_fallback, set_nested, stream_profile
 
 router = APIRouter(prefix="/api/career-alumni", tags=["career-alumni"])
@@ -72,36 +73,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     target_industry = pathway_row.target_industry if pathway_row else "Technology"
 
     # --- alumni mentor match: prefer mentor who already has student as mentee ---
-    mentor_row = db.execute(
-        text("""
-            SELECT am.id, am.name, am.current_role, am.current_company,
-                   am.industry, am.graduation_year, p.name AS program_name
-            FROM alumni_mentors am
-            LEFT JOIN programs p ON p.id = am.program_id
-            WHERE am.mentee_student_ids::jsonb ? :sid
-               OR (am.program_id = (
-                       SELECT program_id FROM students WHERE id = :sid
-                   ) AND am.available = true)
-            ORDER BY (am.mentee_student_ids::jsonb ? :sid) DESC
-            LIMIT 1
-        """),
-        {"sid": STUDENT_ID},
-    ).fetchone()
-
-    alumni_mentor_match = (
-        {
-            "id": mentor_row.id,
-            "name": mentor_row.name,
-            "current_role": mentor_row.current_role,
-            "current_company": mentor_row.current_company,
-            "industry": mentor_row.industry,
-            "graduation_year": mentor_row.graduation_year,
-            "program_name": mentor_row.program_name,
-            "match_basis": "Shared program, target industry, and graduation cohort alignment",
-        }
-        if mentor_row
-        else None
-    )
+    alumni_mentor_match = get_matched_mentor(db, STUDENT_ID)
 
     # --- AI-generated career pathway recommendation via evidence builder ---
     evidence_output = build_evidence(

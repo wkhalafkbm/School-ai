@@ -738,3 +738,23 @@ def test_internship_options_has_data(client):
     data = client.get("/api/internships").json()
     assert "internships" in data
     assert isinstance(data["internships"], list)
+
+
+# ---------------------------------------------------------------------------
+# Cycle 32 — GET /api/students/{id}/matched-mentor (issue #54)
+# ---------------------------------------------------------------------------
+
+def test_matched_mentor_returns_200(client):
+    response = client.get("/api/students/stu-005/matched-mentor")
+    assert response.status_code == 200
+
+
+def test_matched_mentor_is_the_assigned_mentee_mentor_pairing(client):
+    data = client.get("/api/students/stu-005/matched-mentor").json()
+    mentor = data["mentor"]
+    assert mentor["id"] == "alm-001"
+    assert "Yousef" in mentor["name"]
+
+
+def test_matched_mentor_unknown_student_returns_404(client):
+    assert client.get("/api/students/stu-999/matched-mentor").status_code == 404

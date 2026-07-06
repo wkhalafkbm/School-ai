@@ -1,0 +1,473 @@
+openapi: 3.1.0
+info:
+  title: University AI — Orchestrate Read Tools — Students
+  version: 1.0.0
+servers:
+  - url: https://mushily-twistable-simply.ngrok-free.dev
+paths:
+  /api/students/{student_id}:
+    get:
+      tags:
+      - students
+      summary: Get student profile
+      description: 'Returns core profile fields for a student: name, program, status,
+        GPA, year level, admission term, and nationality.'
+      operationId: get_student_profile_api_students__student_id__get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/academic-history:
+    get:
+      tags:
+      - students
+      summary: Get applicant academic history
+      description: Returns the student's full enrollment history including course
+        names, semesters, grades, and status.
+      operationId: get_academic_history_api_students__student_id__academic_history_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/sponsorship:
+    get:
+      tags:
+      - students
+      summary: Get sponsorship status
+      description: Returns all sponsorship records for a student including sponsor
+        name, coverage type, amount, and approval status.
+      operationId: get_sponsorship_status_api_students__student_id__sponsorship_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/onboarding:
+    get:
+      tags:
+      - students
+      summary: Get onboarding status
+      description: Returns all onboarding tasks for a student with completion status,
+        category, and due dates.
+      operationId: get_onboarding_status_api_students__student_id__onboarding_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/registrations:
+    get:
+      tags:
+      - students
+      summary: Get course registrations
+      description: Returns all course registrations for a student including course
+        name, semester, status, and grade.
+      operationId: get_course_registrations_api_students__student_id__registrations_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/prerequisites:
+    get:
+      tags:
+      - students
+      summary: Get prerequisite check
+      description: Returns prerequisite status for each enrolled course, indicating
+        whether each prerequisite has been met.
+      operationId: get_prerequisite_check_api_students__student_id__prerequisites_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/financial-holds:
+    get:
+      tags:
+      - students
+      summary: Get financial holds
+      description: Returns financial aid records for a student including aid type,
+        amount, status, and renewal conditions.
+      operationId: get_financial_holds_api_students__student_id__financial_holds_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/admin-holds:
+    get:
+      tags:
+      - students
+      summary: Get administrative holds
+      description: Returns all administrative holds on a student including hold type,
+        severity, and whether they block registration or transcript release.
+      operationId: get_admin_holds_api_students__student_id__admin_holds_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/lms-signals:
+    get:
+      tags:
+      - students
+      summary: Get LMS signals
+      description: Returns LMS engagement signals per course including login frequency,
+        assignment submission rate, quiz scores, and risk flag.
+      operationId: get_lms_signals_api_students__student_id__lms_signals_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/attendance:
+    get:
+      tags:
+      - students
+      summary: Get attendance summary
+      description: Returns per-course attendance signals derived from LMS login activity,
+        video watch rate, and engagement risk flag.
+      operationId: get_attendance_api_students__student_id__attendance_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/early-grades:
+    get:
+      tags:
+      - students
+      summary: Get early grades
+      description: Returns SLO assessment results for a student indicating early performance
+        signals, proficiency, and attempt number per course.
+      operationId: get_early_grades_api_students__student_id__early_grades_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/support-history:
+    get:
+      tags:
+      - students
+      summary: Get support history
+      description: Returns all support cases for a student including case type, subject,
+        priority, status, and resolution.
+      operationId: get_support_history_api_students__student_id__support_history_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/risk-summary:
+    get:
+      tags:
+      - students
+      summary: Get risk summary
+      description: Returns a synthesised risk level (high/medium/low/none) and list
+        of risk factors derived from LMS signals, support cases, and administrative
+        holds.
+      operationId: get_risk_summary_api_students__student_id__risk_summary_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/transcript:
+    get:
+      tags:
+      - students
+      summary: Get transcript
+      description: Returns the student's full academic transcript including all courses,
+        credits, grades, and cumulative GPA.
+      operationId: get_transcript_api_students__student_id__transcript_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/skills:
+    get:
+      tags:
+      - students
+      summary: Get skill profile
+      description: Returns the student's career pathway including target role, skills
+        gap, recommended courses, target companies, and internship timeline.
+      operationId: get_skill_profile_api_students__student_id__skills_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/matched-mentor:
+    get:
+      tags:
+      - students
+      summary: Get matched mentor
+      description: Returns the single alumni mentor deterministically assigned
+        to this student — the definitive mentor recommendation, not a list to
+        choose from.
+      operationId: get_student_matched_mentor_api_students__student_id__matched_mentor_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

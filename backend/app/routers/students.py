@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models
+from app.routers.alumni import get_matched_mentor
 
 router = APIRouter(prefix="/api/students", tags=["students"])
 
@@ -447,3 +448,12 @@ def get_skill_profile(student_id: str, db: Session = Depends(get_db)):
         "internship_target_semester": None,
         "status": None,
     }
+
+
+# --- get_student_matched_mentor ---
+
+@router.get("/{student_id}/matched-mentor", summary="Get matched mentor", description="Returns the single alumni mentor deterministically assigned to this student — the definitive mentor recommendation, not a list to choose from.")
+def get_student_matched_mentor(student_id: str, db: Session = Depends(get_db)):
+    _require_student(student_id, db)
+    mentor = get_matched_mentor(db, student_id)
+    return {"student_id": student_id, "mentor": mentor}

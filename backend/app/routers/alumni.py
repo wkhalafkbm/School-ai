@@ -1,10 +1,48 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models
 
 router = APIRouter(tags=["alumni"])
+
+
+def get_matched_mentor(db: Session, student_id: str) -> dict | None:
+    """Return the single mentor deterministically assigned to this student.
+
+    Prefers a mentor whose mentee_student_ids already contains this student,
+    falling back to an available mentor in the student's own program.
+    """
+    row = db.execute(
+        text("""
+            SELECT am.id, am.name, am.current_role, am.current_company,
+                   am.industry, am.graduation_year, p.name AS program_name
+            FROM alumni_mentors am
+            LEFT JOIN programs p ON p.id = am.program_id
+            WHERE am.mentee_student_ids::jsonb ? :sid
+               OR (am.program_id = (
+                       SELECT program_id FROM students WHERE id = :sid
+                   ) AND am.available = true)
+            ORDER BY (am.mentee_student_ids::jsonb ? :sid) DESC
+            LIMIT 1
+        """),
+        {"sid": student_id},
+    ).fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "id": row.id,
+        "name": row.name,
+        "current_role": row.current_role,
+        "current_company": row.current_company,
+        "industry": row.industry,
+        "graduation_year": row.graduation_year,
+        "program_name": row.program_name,
+        "match_basis": "Shared program, target industry, and graduation cohort alignment",
+    }
 
 
 # --- get_mentor_pool ---

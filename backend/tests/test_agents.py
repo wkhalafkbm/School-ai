@@ -259,3 +259,63 @@ def test_admissions_agent_instructions_have_pre_response_self_check():
         "testing showed the model sometimes skips the tool call after a "
         "long chain of read-tool calls and narrates the action instead"
     )
+
+
+# ---------------------------------------------------------------------------
+# Cycle 10 — career_alumni agent must use the deterministic mentor match, not
+# reason freely over the full mentor pool (issue #54: live trace showed the
+# agent fabricating mentor names or picking a real alumnus who isn't the
+# student's actual assigned mentor)
+# ---------------------------------------------------------------------------
+
+
+MATCHED_MENTOR_TOOL = "get_student_matched_mentor_api_students__student_id__matched_mentor_get"
+
+
+def test_career_alumni_agent_tools_include_matched_mentor_tool():
+    data = yaml.safe_load((AGENTS_DIR / "career_alumni_agent.yaml").read_text())
+    tools = data.get("tools", [])
+    assert MATCHED_MENTOR_TOOL in tools or MATCHED_MENTOR_TOOL.replace("__", "_") in tools, (
+        "career_alumni_agent.yaml must include the get_student_matched_mentor "
+        "tool so it has a single ground-truth mentor match instead of reasoning "
+        "over the full get_alumni_mentors pool"
+    )
+
+
+def test_career_alumni_agent_instructions_name_matched_mentor_tool_explicitly():
+    data = yaml.safe_load((AGENTS_DIR / "career_alumni_agent.yaml").read_text())
+    assert "get_student_matched_mentor" in data["instructions"], (
+        "career_alumni_agent.yaml instructions must name the "
+        "get_student_matched_mentor tool explicitly rather than only "
+        "describing mentor selection in prose"
+    )
+
+
+def test_career_alumni_agent_instructions_forbid_picking_mentor_from_full_pool():
+    data = yaml.safe_load((AGENTS_DIR / "career_alumni_agent.yaml").read_text())
+    instructions_lower = data["instructions"].lower()
+    assert "do not" in instructions_lower and "get_alumni_mentors" in instructions_lower, (
+        "career_alumni_agent.yaml instructions must explicitly forbid picking "
+        "the primary mentor match by reasoning over get_alumni_mentors, since "
+        "that is what caused fabricated and mismatched mentor picks in issue #54"
+    )
+
+
+def test_career_alumni_agent_instructions_forbid_inventing_mentor_names():
+    data = yaml.safe_load((AGENTS_DIR / "career_alumni_agent.yaml").read_text())
+    instructions_lower = data["instructions"].lower()
+    assert "rather than inventing" in instructions_lower, (
+        "career_alumni_agent.yaml instructions must require quoting the "
+        "mentor name/role/company returned by get_student_matched_mentor "
+        "rather than inventing one, to prevent fabricated mentor names"
+    )
+
+
+def test_career_alumni_agent_instructions_have_pre_response_self_check():
+    data = yaml.safe_load((AGENTS_DIR / "career_alumni_agent.yaml").read_text())
+    instructions_lower = data["instructions"].lower()
+    assert "before you send your final response" in instructions_lower, (
+        "career_alumni_agent.yaml instructions must include a pre-response "
+        "self-check requiring the stated mentor to match get_student_matched_mentor's "
+        "returned name exactly before the response is sent"
+    )
