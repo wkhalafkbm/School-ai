@@ -387,3 +387,38 @@ def test_all_seven_owner_roles_present_in_seed(client):
     }
     missing = required - seeded
     assert not missing, f"Seeded fixtures missing owner roles: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# Cycle — CORS must allow the frontend to POST/PATCH workflow items
+# (regression: allow_methods was left as ["GET"] after POST/PATCH endpoints
+# were added, so every "create workflow item" button in the frontend failed
+# with a browser-side CORS preflight rejection — "Failed to fetch")
+# ---------------------------------------------------------------------------
+
+def test_cors_preflight_allows_post_from_frontend_origin(client):
+    response = client.options(
+        "/api/workflows",
+        headers={
+            "origin": "http://localhost:3000",
+            "access-control-request-method": "POST",
+            "access-control-request-headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    allowed_methods = {m.strip() for m in response.headers["access-control-allow-methods"].split(",")}
+    assert "POST" in allowed_methods
+
+
+def test_cors_preflight_allows_patch_from_frontend_origin(client):
+    response = client.options(
+        "/api/workflows/wfl-001",
+        headers={
+            "origin": "http://localhost:3000",
+            "access-control-request-method": "PATCH",
+            "access-control-request-headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    allowed_methods = {m.strip() for m in response.headers["access-control-allow-methods"].split(",")}
+    assert "PATCH" in allowed_methods

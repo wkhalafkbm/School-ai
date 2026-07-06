@@ -11,7 +11,7 @@ app = FastAPI(title="University AI Operating Center")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "PATCH"],
     allow_credentials=False,
 )
 app.include_router(admissions.router)
