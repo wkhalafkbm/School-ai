@@ -24,6 +24,7 @@ __pycache__/
 frontend/.next/
 frontend/node_modules/
 frontend/out/
+frontend/*.tsbuildinfo
 
 # Docker
 *.log
