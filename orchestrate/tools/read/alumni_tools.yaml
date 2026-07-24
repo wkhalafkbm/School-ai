@@ -1,0 +1,63 @@
+openapi: 3.1.0
+info:
+  title: University AI — Orchestrate Read Tools — Alumni
+  version: 1.0.0
+servers:
+  - url: https://mushily-twistable-simply.ngrok-free.dev
+paths:
+  /api/mentors:
+    get:
+      tags:
+      - alumni
+      summary: Get mentor pool
+      description: Returns all available alumni mentors with their current role, company,
+        industry, mentoring capacity, and availability status.
+      operationId: get_mentor_pool_api_mentors_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/alumni/mentors:
+    get:
+      tags:
+      - alumni
+      summary: Get alumni mentors
+      description: Returns all alumni who are available as mentors, with graduation
+        year, current role, company, and mentoring capacity.
+      operationId: get_alumni_mentors_api_alumni_mentors_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/alumni/outcomes:
+    get:
+      tags:
+      - alumni
+      summary: Get graduate outcomes
+      description: Returns graduate outcome data including industry breakdown and
+        individual alumni career trajectories.
+      operationId: get_graduate_outcomes_api_alumni_outcomes_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/internships:
+    get:
+      tags:
+      - alumni
+      summary: Get internship options
+      description: Returns available internship opportunities derived from student
+        career pathways, including target company, industry, and recommended semester.
+      operationId: get_internship_options_api_internships_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}

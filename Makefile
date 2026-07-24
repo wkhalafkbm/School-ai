@@ -1,4 +1,4 @@
-.PHONY: dev stop test test-api test-e2e test-frontend migrate seed setup import-write-tools
+.PHONY: dev stop test test-api test-e2e test-frontend migrate seed setup import-write-tools import-read-tools
 
 setup:
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example — review before running."; fi
@@ -34,3 +34,8 @@ seed:
 
 import-write-tools:
 	orchestrate tools import --kind openapi --file orchestrate/tools/write_tools.yaml
+
+import-read-tools:
+	@for f in orchestrate/tools/read/*.yaml; do \
+		orchestrate tools import --kind openapi --file $$f; \
+	done

@@ -1,0 +1,120 @@
+openapi: 3.1.0
+info:
+  title: University AI — Orchestrate Read Tools — Cohorts
+  version: 1.0.0
+servers:
+  - url: https://mushily-twistable-simply.ngrok-free.dev
+paths:
+  /api/cohorts/{cohort_id}/prerequisite-gaps:
+    get:
+      tags:
+      - cohorts
+      summary: Get prerequisite gaps
+      description: Returns students in a program cohort who are enrolled in courses
+        without having passed the required prerequisites.
+      operationId: get_prerequisite_gaps_api_cohorts__cohort_id__prerequisite_gaps_get
+      parameters:
+      - name: cohort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Cohort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/cohorts/{cohort_id}/slo-results:
+    get:
+      tags:
+      - cohorts
+      summary: Get cohort SLO results
+      description: Returns SLO proficiency history across all courses in a program
+        cohort, aggregated by course and semester.
+      operationId: get_cohort_slo_results_api_cohorts__cohort_id__slo_results_get
+      parameters:
+      - name: cohort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Cohort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/cohorts/{cohort_id}/progression:
+    get:
+      tags:
+      - cohorts
+      summary: Get cohort progression
+      description: Returns credit progression and graduation timeline for each student
+        in a program cohort, including on-track status and projected graduation date.
+      operationId: get_cohort_progression_api_cohorts__cohort_id__progression_get
+      parameters:
+      - name: cohort_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Cohort Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

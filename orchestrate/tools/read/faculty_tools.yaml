@@ -1,0 +1,80 @@
+openapi: 3.1.0
+info:
+  title: University AI — Orchestrate Read Tools — Faculty
+  version: 1.0.0
+servers:
+  - url: https://mushily-twistable-simply.ngrok-free.dev
+paths:
+  /api/faculty:
+    get:
+      tags:
+      - faculty
+      summary: Get faculty list
+      description: Returns all faculty members with name, title, department, email,
+        and specialization.
+      operationId: get_faculty_list_api_faculty_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/faculty/{faculty_id}/workload:
+    get:
+      tags:
+      - faculty
+      summary: Get faculty workload
+      description: Returns a faculty member's current credit load, maximum credits,
+        overload status, and list of assigned courses.
+      operationId: get_faculty_workload_api_faculty__faculty_id__workload_get
+      parameters:
+      - name: faculty_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Faculty Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

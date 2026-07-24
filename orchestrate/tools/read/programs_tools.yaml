@@ -1,0 +1,134 @@
+openapi: 3.1.0
+info:
+  title: University AI — Orchestrate Read Tools — Programs
+  version: 1.0.0
+servers:
+  - url: https://mushily-twistable-simply.ngrok-free.dev
+paths:
+  /api/programs:
+    get:
+      tags:
+      - programs
+      summary: Get program options
+      description: Returns all available degree programs including name, department,
+        degree level, total credits, and duration.
+      operationId: get_program_options_api_programs_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/programs/{program_id}/success-patterns:
+    get:
+      tags:
+      - programs
+      summary: Get historical success patterns
+      description: Returns alumni outcomes and industry breakdown for a program, showing
+        historical graduate success patterns by industry and role.
+      operationId: get_success_patterns_api_programs__program_id__success_patterns_get
+      parameters:
+      - name: program_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Program Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/programs/{program_id}/requirements:
+    get:
+      tags:
+      - programs
+      summary: Get curriculum requirements
+      description: Returns all graduation requirements for a program including credit
+        thresholds, mandatory courses, and capstone conditions.
+      operationId: get_curriculum_requirements_api_programs__program_id__requirements_get
+      parameters:
+      - name: program_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Program Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/programs/{program_id}/electives:
+    get:
+      tags:
+      - programs
+      summary: Get electives
+      description: Returns available elective courses for a program — courses that
+        are not required as prerequisites for any other course.
+      operationId: get_electives_api_programs__program_id__electives_get
+      parameters:
+      - name: program_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Program Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError

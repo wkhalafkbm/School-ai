@@ -1,0 +1,147 @@
+openapi: 3.1.0
+info:
+  title: University AI — Orchestrate Read Tools — Courses
+  version: 1.0.0
+servers:
+  - url: https://mushily-twistable-simply.ngrok-free.dev
+paths:
+  /api/courses/{course_id}/slo-history:
+    get:
+      tags:
+      - courses
+      summary: Get cohort SLO history
+      description: Returns historical SLO proficiency rates and average scores for
+        a course across past semesters.
+      operationId: get_cohort_slo_history_api_courses__course_id__slo_history_get
+      parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Course Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/courses/{course_id}/slo-assessments:
+    get:
+      tags:
+      - courses
+      summary: Get SLO assessments
+      description: Returns SLO assessment records for a course including proficiency
+        rates, average scores, and number of students assessed per SLO.
+      operationId: get_slo_assessments_api_courses__course_id__slo_assessments_get
+      parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Course Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/courses/{course_id}/availability:
+    get:
+      tags:
+      - courses
+      summary: Get course availability
+      description: Returns scheduled sections for a course with capacity, current
+        enrollment, seats available, days, and time slots.
+      operationId: get_course_availability_api_courses__course_id__availability_get
+      parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Course Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/courses/{course_id}/slo-performance:
+    get:
+      tags:
+      - courses
+      summary: Get course SLO performance
+      description: Returns per-SLO performance summary for a course including proficiency
+        rate and total students assessed.
+      operationId: get_course_slo_performance_api_courses__course_id__slo_performance_get
+      parameters:
+      - name: course_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Course Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
