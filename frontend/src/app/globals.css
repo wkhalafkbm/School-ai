@@ -272,6 +272,16 @@
   opacity: 0.85;
 }
 
+/* StreamedField — shimmer sweep while the AI is still refining a field */
+@keyframes ai-shimmer {
+  from {
+    left: -50%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
 /* Content area */
 .shell-content {
   flex: 1;
