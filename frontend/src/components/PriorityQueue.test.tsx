@@ -49,4 +49,40 @@ describe("PriorityQueue", () => {
     expect(screen.getByText("Graduation Planning")).toBeTruthy();
     expect(screen.getByText("Onboarding")).toBeTruthy();
   });
+
+  // Issue #66 added a GPA-trend source to the queue. Its rows are ordinary
+  // queue rows, so the component needs no special case — these are copied
+  // verbatim from the endpoint's response so that stays true.
+  const TREND_ITEMS = [
+    {
+      student_id: "stu-003",
+      student_name: "Fahad Al-Ajmi",
+      stage: "academic_progress",
+      status: "urgent" as const,
+      reason: "GPA declined 1.90 → 1.40 in 2024-Fall (sharp drop)",
+    },
+    {
+      student_id: "stu-013",
+      student_name: "Noura Al-Sabah",
+      stage: "academic_progress",
+      status: "watch" as const,
+      reason:
+        "GPA declined 2.90 → 2.65 → 2.40 across 2023-Fall–2024-Fall, a total of 0.50 over two terms (sustained decline)",
+    },
+  ];
+
+  it("renders GPA-trend rows with their reason and tier intact", () => {
+    render(<PriorityQueue items={TREND_ITEMS} />);
+    expect(screen.getByText(TREND_ITEMS[0].reason)).toBeTruthy();
+    expect(screen.getByText(TREND_ITEMS[1].reason)).toBeTruthy();
+    expect(screen.getByText("Urgent")).toBeTruthy();
+    expect(screen.getByText("Watch")).toBeTruthy();
+  });
+
+  it("routes GPA-trend rows to the Academic Risk page", () => {
+    const { container } = render(<PriorityQueue items={TREND_ITEMS} />);
+    const links = container.querySelectorAll("a[data-testid='queue-row']");
+    expect(links[0].getAttribute("href")).toBe("/academic-risk?student=stu-003");
+    expect(links[1].getAttribute("href")).toBe("/academic-risk?student=stu-013");
+  });
 });

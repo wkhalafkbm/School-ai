@@ -3,6 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.gpa_trends import gpa_trend_queue_rows
 from app.status import StatusCode, status_meta
 
 router = APIRouter(prefix="/api/overview", tags=["overview"])
@@ -352,71 +353,96 @@ def journey_health(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/priority-queue")
-def priority_queue(db: Session = Depends(get_db)):
+QUEUE_ROW_CAP = 20
+
+
+def _persisted_queue_rows(db: Session) -> list[dict]:
+    """
+    Queue rows for the signals a student's records state outright: an open LMS
+    risk flag, a credit shortfall, an unfinished onboarding task. Each source
+    carries a fixed severity, so the tier is a constant in the SELECT.
+    """
     rows = db.execute(
         text("""
-            WITH signals AS (
-                SELECT
-                    s.id AS student_id,
-                    s.name AS student_name,
-                    'academic_progress' AS stage,
-                    'urgent' AS status,
-                    'LMS risk flag raised' AS reason,
-                    4 AS rank
-                FROM students s
-                JOIN lms_signals l ON l.student_id = s.id
-                WHERE l.risk_flag != 'none'
+            SELECT
+                s.id AS student_id,
+                s.name AS student_name,
+                'academic_progress' AS stage,
+                'urgent' AS status,
+                'LMS risk flag raised' AS reason
+            FROM students s
+            JOIN lms_signals l ON l.student_id = s.id
+            WHERE l.risk_flag != 'none'
 
-                UNION ALL
+            UNION ALL
 
-                SELECT
-                    s.id,
-                    s.name,
-                    'graduation_planning',
-                    'needs_attention',
-                    'Behind on credits — not on track for graduation',
-                    3
-                FROM students s
-                JOIN student_course_progress scp ON scp.student_id = s.id
-                WHERE NOT scp.on_track
+            SELECT
+                s.id,
+                s.name,
+                'graduation_planning',
+                'needs_attention',
+                'Behind on credits — not on track for graduation'
+            FROM students s
+            JOIN student_course_progress scp ON scp.student_id = s.id
+            WHERE NOT scp.on_track
 
-                UNION ALL
+            UNION ALL
 
-                SELECT
-                    s.id,
-                    s.name,
-                    'onboarding',
-                    'watch',
-                    'Incomplete onboarding tasks',
-                    2
-                FROM students s
-                JOIN onboarding_tasks ot ON ot.student_id = s.id
-                WHERE NOT ot.completed
-            ),
-            ranked AS (
-                SELECT DISTINCT ON (student_id)
-                    student_id, student_name, stage, status, reason, rank
-                FROM signals
-                ORDER BY student_id, rank DESC
-            )
-            SELECT student_id, student_name, stage, status, reason
-            FROM ranked
-            ORDER BY rank DESC
-            LIMIT 20
+            SELECT
+                s.id,
+                s.name,
+                'onboarding',
+                'watch',
+                'Incomplete onboarding tasks'
+            FROM students s
+            JOIN onboarding_tasks ot ON ot.student_id = s.id
+            WHERE NOT ot.completed
         """)
     ).fetchall()
 
     return [
         {
-            "student_id": r[0],
-            "student_name": r[1],
-            "stage": r[2],
-            "status": r[3],
-            "reason": r[4],
+            "student_id": r.student_id,
+            "student_name": r.student_name,
+            "stage": r.stage,
+            "status": r.status,
+            "reason": r.reason,
         }
         for r in rows
     ]
+
+
+@router.get("/priority-queue")
+def priority_queue(db: Session = Depends(get_db)):
+    # The GPA-trend source can't be an arm of the UNION above: its tier comes
+    # from a rule that reads a whole term series, and reimplementing that in SQL
+    # is exactly how the queue would start disagreeing with the Academic Risk
+    # panel. So it is computed on read and merged here instead.
+    #
+    # Trend rows lead, which makes them win ties below: where a student is
+    # equally urgent for two reasons, "GPA declined 1.90 → 1.40 in 2024-Fall"
+    # tells an advisor what to do next and "LMS risk flag raised" does not.
+    rows = gpa_trend_queue_rows(db) + _persisted_queue_rows(db)
+
+    # Every source speaks the same status vocabulary, so severity_rank orders a
+    # row from any one of them against a row from any other. The sort is stable,
+    # which is what keeps the tie-break above intact.
+    rows.sort(
+        key=lambda row: status_meta[StatusCode(row["status"])]["severity_rank"],
+        reverse=True,
+    )
+
+    # One row per student — the advisor needs the worst thing about a student,
+    # not every true thing. The sort above already put that row first.
+    queue: list[dict] = []
+    seen: set[str] = set()
+    for row in rows:
+        if row["student_id"] in seen:
+            continue
+        seen.add(row["student_id"])
+        queue.append(row)
+
+    return queue[:QUEUE_ROW_CAP]
 
 
 @router.get("/chart-data")

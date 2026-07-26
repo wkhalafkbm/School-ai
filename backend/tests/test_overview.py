@@ -175,6 +175,87 @@ def test_priority_queue_ordered_by_severity_descending(client):
     assert ranks == sorted(ranks, reverse=True)
 
 
+# ── GPA-trend flags in the priority queue (issue #66) ─────────────────────────
+
+# The fixture cast from #63. Tiers are the trend rule composed with the absolute
+# GPA thresholds, and are asserted here rather than recomputed — the same tiers
+# test_gpa_trend_evaluation pins on the workflow items the sweep creates.
+FLAGGED_BY_TREND = {
+    "stu-003": "urgent",           # decline through the 2.0 line
+    "stu-015": "needs_attention",  # sharp drop, cumulative still healthy
+    "stu-013": "watch",            # sustained decline, cumulative still healthy
+}
+
+NOT_FLAGGED_BY_TREND = [
+    "stu-004",  # dip then recovery
+    "stu-005",  # steady high
+    "stu-019",  # steady but flat around 2.3
+]
+
+
+def queue_by_student(client) -> dict:
+    return {
+        item["student_id"]: item
+        for item in client.get("/api/overview/priority-queue").json()
+    }
+
+
+@pytest.mark.parametrize("student_id", list(FLAGGED_BY_TREND))
+def test_trend_flagged_students_reach_the_queue(client, student_id):
+    assert student_id in queue_by_student(client)
+
+
+# The GPA figures each student's own decline turns on, read off the #63 fixture
+# series rather than recomputed — a reason quoting any other numbers is wrong
+# even if the tier beside it happens to be right.
+TREND_REASON_NUMBERS = {
+    "stu-003": "1.90 → 1.40 in 2024-Fall",
+    "stu-015": "3.00 → 2.40 in 2024-Fall",
+    "stu-013": "2.90 → 2.65 → 2.40",
+}
+
+
+@pytest.mark.parametrize("student_id,numbers", list(TREND_REASON_NUMBERS.items()))
+def test_trend_rows_quote_the_students_real_gpa_figures(client, student_id, numbers):
+    assert numbers in queue_by_student(client)[student_id]["reason"]
+
+
+@pytest.mark.parametrize("student_id,expected", list(FLAGGED_BY_TREND.items()))
+def test_trend_rows_carry_the_tier_the_rule_assigned(client, student_id, expected):
+    assert queue_by_student(client)[student_id]["status"] == expected
+
+
+@pytest.mark.parametrize("student_id", NOT_FLAGGED_BY_TREND)
+def test_students_whose_trajectory_never_fires_get_no_trend_row(client, student_id):
+    """
+    A steady or recovering student may still be queued by another source — what
+    must not happen is the queue claiming their GPA is declining.
+    """
+    row = queue_by_student(client).get(student_id)
+    assert row is None or "GPA declined" not in row["reason"]
+
+
+def test_a_trend_row_outranks_a_lower_severity_row_from_another_source(client):
+    """Severity ordering holds across sources, not just within one."""
+    queue = [item["student_id"] for item in client.get("/api/overview/priority-queue").json()]
+    trend_needs_attention = queue.index("stu-015")
+    onboarding_watch = queue.index("stu-002")
+    assert trend_needs_attention < onboarding_watch
+
+
+def test_the_queue_still_shows_each_student_once(client):
+    """The new source must widen the queue, not double-list anyone already in it."""
+    queue = client.get("/api/overview/priority-queue").json()
+    student_ids = [item["student_id"] for item in queue]
+    assert len(student_ids) == len(set(student_ids))
+
+
+def test_trend_rows_are_stamped_with_the_academic_progress_stage(client):
+    """The stage the frontend routes on — an unknown value would strand the row."""
+    for student_id in FLAGGED_BY_TREND:
+        assert queue_by_student(client)[student_id]["stage"] == "academic_progress"
+
+
 # ── /api/overview/metrics/{metric_key}/detail ─────────────────────────────────
 
 DETAIL_URL = "/api/overview/metrics/students_needing_attention/detail"
