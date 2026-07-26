@@ -175,6 +175,40 @@ def _linked_workflow_item(db: Session, student_id: str) -> dict | None:
     }
 
 
+def gpa_trend_queue_rows(db: Session) -> list[dict]:
+    """
+    A priority-queue row for every student the trend rule currently flags (#66).
+
+    Like build_gpa_trend, the tier is computed on read and nothing is persisted,
+    so the queue and the Academic Risk trend panel read the same rule over the
+    same history and cannot disagree about who is declining, or how badly.
+    """
+    rows = []
+
+    for student_id, series in _term_series_by_student(db).items():
+        if len(series) < MIN_TERMS:
+            continue
+
+        result = check_gpa_trend(series)
+        if not result.flagged:
+            continue
+
+        latest = series[-1]
+        rows.append({
+            "student_id": student_id,
+            "student_name": latest["student_name"],
+            "stage": STAGE,
+            "status": gpa_trend_status(
+                result,
+                term_gpa=latest["term_gpa"],
+                cumulative_gpa=latest["cumulative_gpa"],
+            ),
+            "reason": result.reason,
+        })
+
+    return rows
+
+
 def evaluate_gpa_trends(db: Session) -> dict:
     """
     Run the GPA trend rule across every student with at least MIN_TERMS terms
