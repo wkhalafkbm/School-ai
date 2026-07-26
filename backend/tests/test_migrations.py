@@ -16,7 +16,7 @@ EXPECTED_TABLES = {
     "support_cases", "interventions", "graduation_requirements",
     "student_course_progress", "career_pathways", "alumni_mentors",
     "workflow_items", "slos", "slo_assessments", "cohort_slo_history",
-    "student_slo_results",
+    "student_slo_results", "student_term_gpa",
 }
 
 
@@ -54,6 +54,21 @@ def test_upgrade_creates_all_tables(alembic_cfg, engine):
     tables = set(inspector.get_table_names())
     assert EXPECTED_TABLES.issubset(tables), (
         f"Missing tables after upgrade: {EXPECTED_TABLES - tables}"
+    )
+
+
+def test_upgrade_applies_onto_an_already_migrated_database(alembic_cfg, engine):
+    """A deployed DB upgrades in a separate process from the one that built it,
+    so each step must be safe against schema objects that already exist."""
+    command.downgrade(alembic_cfg, "base")
+    _drop_enum(engine)
+
+    command.upgrade(alembic_cfg, "c9e4d1f2a8b3")
+    command.upgrade(alembic_cfg, "head")
+
+    tables = set(inspect(engine).get_table_names())
+    assert EXPECTED_TABLES.issubset(tables), (
+        f"Missing tables after stepwise upgrade: {EXPECTED_TABLES - tables}"
     )
 
 

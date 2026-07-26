@@ -4,7 +4,7 @@ from app.models import (
     FinancialAidRecord, AdministrativeHold, SupportCase, Intervention,
     GraduationRequirement, StudentCourseProgress, CareerPathway,
     AlumniMentor, WorkflowItem, SLO, SLOAssessment,
-    CohortSLOHistory, StudentSLOResult,
+    CohortSLOHistory, StudentSLOResult, StudentTermGPA,
 )
 
 
@@ -14,12 +14,12 @@ ALL_MODELS = [
     FinancialAidRecord, AdministrativeHold, SupportCase, Intervention,
     GraduationRequirement, StudentCourseProgress, CareerPathway,
     AlumniMentor, WorkflowItem, SLO, SLOAssessment,
-    CohortSLOHistory, StudentSLOResult,
+    CohortSLOHistory, StudentSLOResult, StudentTermGPA,
 ]
 
 
 def test_all_models_importable():
-    assert len(ALL_MODELS) == 23
+    assert len(ALL_MODELS) == 24
 
 
 def test_metadata_validates():
@@ -32,7 +32,7 @@ def test_metadata_validates():
         "support_cases", "interventions", "graduation_requirements",
         "student_course_progress", "career_pathways", "alumni_mentors",
         "workflow_items", "slos", "slo_assessments", "cohort_slo_history",
-        "student_slo_results",
+        "student_slo_results", "student_term_gpa",
     }
     assert tables == expected
 
