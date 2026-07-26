@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from app.stages import LEGACY_STAGES, STAGES, WORKFLOW_STATUSES
+from app.stages import LEGACY_STAGES, LEGACY_STATUSES, STAGES, WORKFLOW_STATUSES
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 BACKEND_APP = Path(__file__).parent.parent / "app"
@@ -95,6 +95,33 @@ def test_write_tool_spec_offers_agents_exactly_the_canonical_statuses():
     patch = write_tools_schema("WorkflowItemPatch")["properties"]["status"]
     assert set(create.get("enum", [])) == WORKFLOW_STATUSES
     assert set(patch.get("enum", [])) == WORKFLOW_STATUSES
+
+
+@pytest.mark.parametrize("retired", sorted(LEGACY_STAGES))
+def test_the_stage_the_spec_describes_names_no_retired_value(retired):
+    """
+    The spec teaches agents by prose as well as by schema, so a retired stage
+    left in the description keeps producing rows no page reads. Scoped to the
+    stage property: `career` is also a legitimate word elsewhere in the spec,
+    in the "career advisor" owner role.
+    """
+    stage = write_tools_schema("WorkflowItemCreate")["properties"]["stage"]
+    words = re.findall(r"[a-z_]+", stage["description"])
+    assert retired not in words, (
+        f"the spec's stage description still names the retired stage {retired!r}"
+    )
+
+
+@pytest.mark.parametrize("retired", sorted(LEGACY_STATUSES))
+def test_the_spec_never_names_a_retired_status(retired):
+    """
+    Any description an agent reads — the status property, the operation summary
+    it appears under — must not offer a status the frontend cannot badge.
+    """
+    words = re.findall(r"[a-z_]+", WRITE_TOOLS_PATH.read_text())
+    assert retired not in words, (
+        f"write_tools.yaml still names the retired status {retired!r}"
+    )
 
 
 @pytest.mark.parametrize(

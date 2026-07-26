@@ -42,7 +42,7 @@ paths:
       summary: Update workflow item
       description: >-
         Called by agents when a human approval changes the status of an item
-        (approved, complete), or when the UI sends an approval action that triggers
+        (approved, completed), or when the UI sends an approval action that triggers
         an agent follow-up. Only status and due_date are patchable.
       operationId: update_workflow_item
       parameters:
@@ -171,8 +171,8 @@ components:
           title: Status
           description: >-
             New status. One of: pending, in_review, in_progress, approved,
-            completed, blocked, overdue. "completed" is the terminal value —
-            "complete" is not a status and is rejected with 422.
+            completed, blocked, overdue — "completed" being the terminal one.
+            Any value outside this list is rejected with 422.
         due_date:
           anyOf:
           - type: string
