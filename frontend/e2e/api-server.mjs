@@ -44,6 +44,81 @@ const ROUTES = {
     lms_risk_by_semester: [{ semester: "2024-Fall", high: 2, medium: 4, low: 8 }],
   },
 
+  // The Overview server component fetches one drill-down per KPI card and
+  // throws if any 404s, taking the whole page down with it.
+  "/api/overview/metrics/students_needing_attention/detail": {
+    metric_key: "students_needing_attention",
+    definition: "Students carrying at least one open LMS risk flag.",
+    destination: { label: "Academic Risk", href: "/academic-risk" },
+    empty_message: "No student is carrying an LMS risk flag right now.",
+    total: 1,
+    rows: [
+      {
+        id: "stu-003",
+        name: "Fahad Al-Ajmi",
+        context: "Computer Science",
+        status: "urgent",
+        detail: "Risk flag: high",
+      },
+    ],
+  },
+  "/api/overview/metrics/at_risk_detected_early/detail": {
+    metric_key: "at_risk_detected_early",
+    definition: "Students flagged before their GPA fell below the threshold.",
+    destination: { label: "Academic Risk", href: "/academic-risk" },
+    empty_message: "No early detections yet.",
+    total: 1,
+    rows: [
+      {
+        id: "stu-003",
+        name: "Fahad Al-Ajmi",
+        context: "Computer Science",
+        status: "urgent",
+        detail: "Flagged in 2024-Fall",
+      },
+    ],
+  },
+  "/api/overview/metrics/registration_issues_resolved/detail": {
+    metric_key: "registration_issues_resolved",
+    definition: "Schedule conflicts cleared this term.",
+    destination: { label: "Enrollment", href: "/enrollment" },
+    empty_message: "No registration issues resolved yet.",
+    total: 0,
+    rows: [],
+  },
+  "/api/overview/metrics/graduation_delays_prevented/detail": {
+    metric_key: "graduation_delays_prevented",
+    definition: "Students kept on track for on-time graduation.",
+    destination: { label: "Progression", href: "/progression" },
+    empty_message: "No graduation delays prevented yet.",
+    total: 1,
+    rows: [
+      {
+        id: "stu-002",
+        name: "Mariam Al-Kandari",
+        context: "Business Administration",
+        status: "watch",
+        detail: "Plan updated for 2025-Spring",
+      },
+    ],
+  },
+  "/api/overview/metrics/faculty_overload_alerts/detail": {
+    metric_key: "faculty_overload_alerts",
+    definition: "Faculty assigned beyond their credit ceiling.",
+    destination: { label: "Teaching Readiness", href: "/teaching-readiness" },
+    empty_message: "No faculty are overloaded right now.",
+    total: 1,
+    rows: [
+      {
+        id: "fac-001",
+        name: "Dr. Ahmed Al-Rashidi",
+        context: "Computer Science",
+        status: "urgent",
+        detail: "15 of 12 credits",
+      },
+    ],
+  },
+
   "/api/admissions/profile": {
     stage_summary: {
       health: "needs_attention",
@@ -180,6 +255,22 @@ const ROUTES = {
       gpa: 2.4,
       academic_failure_risk: "urgent",
       attrition_risk: "needs_attention",
+    },
+    gpa_trend: {
+      series: [
+        { term: "2023-Fall", term_gpa: 2.4, cumulative_gpa: 2.4 },
+        { term: "2024-Spring", term_gpa: 1.9, cumulative_gpa: 2.15 },
+        { term: "2024-Fall", term_gpa: 1.4, cumulative_gpa: 1.9 },
+      ],
+      status: "urgent",
+      reason:
+        "GPA declined 1.90 → 1.40 in 2024-Fall (sharp drop); GPA declined 2.40 → 1.90 → 1.40 across 2023-Fall–2024-Fall, a total of 1.00 over two terms (sustained decline)",
+      rules_fired: ["sharp_drop", "sustained_decline"],
+      workflow_item: {
+        id: "wft-stu-003-2024-Fall",
+        status: "pending",
+        created_date: "2024-11-02",
+      },
     },
     cohort_slo_pattern: [
       {
@@ -378,8 +469,41 @@ const ROUTES = {
   ],
 };
 
+const STREAM_SUFFIX = "/stream";
+
+/**
+ * Serve a profile payload as SSE, the shape useStreamedProfile expects.
+ *
+ * The real backend emits base → field × N → done, resolving each AI rationale
+ * as its agent returns. There are no agents here, so the scripted rationales
+ * already in the payload stand and we go straight from base to done — the hook
+ * treats that as a fully resolved profile.
+ */
+function sendStream(res, body) {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+    "Access-Control-Allow-Origin": "*",
+  });
+  res.write(`event: base\ndata: ${JSON.stringify(body)}\n\n`);
+  res.write(`event: done\ndata: {}\n\n`);
+  res.end();
+}
+
 const server = http.createServer((req, res) => {
   const url = req.url.split("?")[0];
+
+  // The stage pages stream their profiles (#42); the payload is the same one
+  // the non-streaming route serves.
+  if (url.endsWith(STREAM_SUFFIX)) {
+    const body = ROUTES[url.slice(0, -STREAM_SUFFIX.length)];
+    if (body !== undefined) {
+      sendStream(res, body);
+      return;
+    }
+  }
+
   const body = ROUTES[url];
   if (body !== undefined) {
     res.writeHead(200, {

@@ -44,6 +44,22 @@ const MOCK_PROFILE = {
     academic_failure_risk: "urgent",
     attrition_risk: "urgent",
   },
+  gpa_trend: {
+    series: [
+      { term: "2023-Fall", term_gpa: 2.4, cumulative_gpa: 2.4 },
+      { term: "2024-Spring", term_gpa: 1.9, cumulative_gpa: 2.15 },
+      { term: "2024-Fall", term_gpa: 1.4, cumulative_gpa: 1.9 },
+    ],
+    status: "urgent",
+    reason:
+      "GPA declined 1.90 → 1.40 in 2024-Fall (sharp drop); GPA declined 2.40 → 1.90 → 1.40 across 2023-Fall–2024-Fall, a total of 1.00 over two terms (sustained decline)",
+    rules_fired: ["sharp_drop", "sustained_decline"],
+    workflow_item: {
+      id: "wft-stu-003-2024-Fall",
+      status: "pending",
+      created_date: "2026-07-26",
+    },
+  },
   cohort_slo_pattern: [
     {
       slo_code: "CS201-SLO1",
@@ -381,6 +397,175 @@ describe("AcademicRiskPage", () => {
       );
       expect(postCalls).toHaveLength(1);
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue #65, cycle 1 — the Snapshot | Trend toggle, defaulting to Snapshot
+  // -------------------------------------------------------------------------
+
+  it("renders a Snapshot | Trend toggle", () => {
+    renderResolvedPage();
+
+    expect(screen.getByRole("button", { name: "Snapshot" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Trend" })).toBeInTheDocument();
+  });
+
+  it("defaults to Snapshot: the risk badges show and the GPA panel does not", () => {
+    renderResolvedPage();
+
+    expect(screen.getByRole("button", { name: "Snapshot" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByText(/academic failure risk/i)).toBeInTheDocument();
+    expect(screen.getByText(/attrition risk/i)).toBeInTheDocument();
+    expect(screen.queryByText(/gpa by semester/i)).not.toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue #65, cycle 2 — Trend mode replaces the risk-badge column, and the
+  // toggle switches back
+  // -------------------------------------------------------------------------
+
+  it("switching to Trend replaces the risk badges with the trend status and reason", () => {
+    renderResolvedPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+
+    expect(screen.queryByText(/academic failure risk/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/attrition risk/i)).not.toBeInTheDocument();
+    expect(screen.getByText("GPA Trend")).toBeInTheDocument();
+    expect(
+      screen.getByText(/GPA declined 1\.90 → 1\.40 in 2024-Fall/)
+    ).toBeInTheDocument();
+  });
+
+  it("switching back to Snapshot restores the risk badges and hides the GPA panel", () => {
+    renderResolvedPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+    fireEvent.click(screen.getByRole("button", { name: "Snapshot" }));
+
+    expect(screen.getByText(/academic failure risk/i)).toBeInTheDocument();
+    expect(screen.getByText(/attrition risk/i)).toBeInTheDocument();
+    expect(screen.queryByText(/gpa by semester/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the surrounding context visible in both modes", () => {
+    renderResolvedPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+
+    expect(screen.getByText(/cohort slo pattern/i)).toBeInTheDocument();
+    expect(screen.getByText(/intervention plan/i)).toBeInTheDocument();
+    expect(screen.getByText(/sponsor escalation/i)).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue #65, cycle 3 — the GPA by Semester panel
+  // -------------------------------------------------------------------------
+
+  function renderTrendMode(data: unknown = MOCK_PROFILE) {
+    const result = renderResolvedPage(data);
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+    return result;
+  }
+
+  it("shows the GPA by Semester panel only in Trend mode", () => {
+    renderTrendMode();
+
+    expect(screen.getByText(/gpa by semester/i)).toBeInTheDocument();
+  });
+
+  it("lists every term in chronological order with both GPAs", () => {
+    renderTrendMode();
+
+    const rows = screen
+      .getByRole("table", { name: /gpa by semester/i })
+      .querySelectorAll("tbody tr");
+
+    expect(Array.from(rows).map((row) => row.textContent)).toEqual([
+      "2023-Fall2.402.40",
+      "2024-Spring1.902.15",
+      "2024-Fall1.401.90",
+    ]);
+  });
+
+  it("plots one chart point per term, agreeing with the table", () => {
+    const { container } = renderTrendMode();
+
+    const points = container.querySelectorAll("[data-testid='gpa-chart-point']");
+    expect(points).toHaveLength(3);
+    expect(Array.from(points).map((p) => p.getAttribute("data-term-gpa"))).toEqual([
+      "2.4",
+      "1.9",
+      "1.4",
+    ]);
+  });
+
+  it("annotates which rules fired", () => {
+    renderTrendMode();
+
+    const chips = screen.getAllByTestId("trend-rule");
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      "Sharp drop",
+      "Sustained decline",
+    ]);
+  });
+
+  it("shows the linked workflow item with its live status", () => {
+    renderTrendMode();
+
+    // Scoped to the panel: the sponsor escalation is also "pending".
+    const item = screen.getByText("wft-stu-003-2024-Fall").parentElement!;
+    expect(item.textContent).toContain("pending");
+    expect(item.textContent).toContain("2026-07-26");
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue #65, cycle 4 — a student with no fired rule gets the neutral state,
+  // never a blank panel and never a misleading badge
+  // -------------------------------------------------------------------------
+
+  const NO_TREND_PROFILE = {
+    ...MOCK_PROFILE,
+    gpa_trend: {
+      series: [
+        { term: "2023-Fall", term_gpa: 3.5, cumulative_gpa: 3.5 },
+        { term: "2024-Spring", term_gpa: 3.45, cumulative_gpa: 3.48 },
+      ],
+      status: null,
+      reason:
+        "No declining trend through 2024-Spring: latest term GPA 3.45 versus 3.50 prior",
+      rules_fired: [],
+      workflow_item: null,
+    },
+  };
+
+  it("shows a neutral no-trend state instead of a status badge", () => {
+    renderTrendMode(NO_TREND_PROFILE);
+
+    expect(screen.getByText(/no downward trend detected/i)).toBeInTheDocument();
+    expect(screen.queryAllByTestId("trend-rule")).toHaveLength(0);
+    expect(screen.getByText(/no trend detected/i)).toBeInTheDocument();
+  });
+
+  it("still renders the full series for a student with no fired rule", () => {
+    const { container } = renderTrendMode(NO_TREND_PROFILE);
+
+    const rows = screen
+      .getByRole("table", { name: /gpa by semester/i })
+      .querySelectorAll("tbody tr");
+    expect(rows).toHaveLength(2);
+    expect(
+      container.querySelectorAll("[data-testid='gpa-chart-point']")
+    ).toHaveLength(2);
+  });
+
+  it("says so plainly when no workflow item is linked", () => {
+    renderTrendMode(NO_TREND_PROFILE);
+
+    expect(screen.getByText(/no workflow item opened/i)).toBeInTheDocument();
   });
 
   it("the POST call targets student affairs officer", async () => {
