@@ -21,11 +21,12 @@ from sqlalchemy.orm import Session
 
 from app.models import WorkflowItem
 from app.rules import GPATrendResult, check_gpa_trend, gpa_trend_status
+from app.stages import Stage
 from app.status import StatusCode
 
 MIN_TERMS = 2
 
-STAGE = "academic_progress"
+STAGE = Stage.academic_risk
 WORKFLOW_TYPE = "academic_risk_review"
 OWNER_ROLE = "academic advisor"
 ASSIGNED_TO = "Academic Advising"

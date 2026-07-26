@@ -110,14 +110,10 @@ def test_journey_health_returns_200(client):
 
 
 def test_journey_health_has_all_five_stages(client):
+    from app.stages import JOURNEY_HEALTH_STAGES
+
     data = client.get("/api/overview/journey-health").json()
-    assert set(data.keys()) == {
-        "onboarding",
-        "registration",
-        "academic_progress",
-        "graduation_planning",
-        "career",
-    }
+    assert set(data.keys()) == {stage.value for stage in JOURNEY_HEALTH_STAGES}
 
 
 def test_journey_health_values_are_valid_status_codes(client):
@@ -128,16 +124,16 @@ def test_journey_health_values_are_valid_status_codes(client):
         assert status in valid, f"stage {stage!r} has invalid status {status!r}"
 
 
-def test_journey_health_onboarding_reflects_incomplete_tasks(client):
+def test_journey_health_admissions_reflects_incomplete_onboarding_tasks(client):
     # 4/12 tasks incomplete → ~33% → watch
     data = client.get("/api/overview/journey-health").json()
-    assert data["onboarding"] in ("watch", "needs_attention", "urgent")
+    assert data["admissions"] in ("watch", "needs_attention", "urgent")
 
 
-def test_journey_health_graduation_planning_reflects_on_track_ratio(client):
+def test_journey_health_progression_reflects_on_track_ratio(client):
     # 2/5 not on_track → 40% → above 30% threshold → urgent
     data = client.get("/api/overview/journey-health").json()
-    assert data["graduation_planning"] == "urgent"
+    assert data["progression"] == "urgent"
 
 
 # ── /api/overview/priority-queue ──────────────────────────────────────────────
@@ -161,6 +157,15 @@ def test_priority_queue_items_have_required_fields(client):
         assert "stage" in item
         assert "status" in item
         assert "reason" in item
+
+
+def test_priority_queue_rows_carry_canonical_stages(client):
+    """Every row routes off its stage — an off-vocabulary value strands it (#68)."""
+    from app.stages import STAGES
+
+    data = client.get("/api/overview/priority-queue").json()
+    off_vocabulary = sorted({i["stage"] for i in data if i["stage"] not in STAGES})
+    assert not off_vocabulary, f"priority queue emits unknown stages: {off_vocabulary}"
 
 
 def test_priority_queue_capped_at_20(client):
@@ -250,10 +255,10 @@ def test_the_queue_still_shows_each_student_once(client):
     assert len(student_ids) == len(set(student_ids))
 
 
-def test_trend_rows_are_stamped_with_the_academic_progress_stage(client):
+def test_trend_rows_are_stamped_with_the_academic_risk_stage(client):
     """The stage the frontend routes on — an unknown value would strand the row."""
     for student_id in FLAGGED_BY_TREND:
-        assert queue_by_student(client)[student_id]["stage"] == "academic_progress"
+        assert queue_by_student(client)[student_id]["stage"] == "academic_risk"
 
 
 # ── /api/overview/metrics/{metric_key}/detail ─────────────────────────────────

@@ -329,6 +329,53 @@ def test_approved_item_routed_to_student_affairs(client):
     assert item["stage"] == "academic_risk"
 
 
+def test_approved_item_appears_on_the_academic_risk_page(client):
+    """
+    Issue #68 — the page's own button used to write a stage the page did not
+    read, so the item it created was invisible here while showing up in the
+    Workflow Activity table.
+    """
+    created = client.post(
+        "/api/workflows",
+        json={**APPROVE_PAYLOAD, "trigger": "Intervention approved — page visibility"},
+    )
+    assert created.status_code == 201, created.text
+    created_id = created.json()["id"]
+
+    profile = client.get("/api/academic-risk/profile").json()
+    shown = {item["id"] for item in profile["workflow_items"]}
+    assert created_id in shown, "Item created from this page must be visible on it"
+
+
+def test_page_workflow_items_omit_the_item_shown_as_the_sponsor_escalation(client):
+    """The escalation has its own panel; listing it twice is noise, not news."""
+    profile = client.get("/api/academic-risk/profile").json()
+    escalation_id = profile["sponsor_escalation"]["id"]
+    assert escalation_id not in {item["id"] for item in profile["workflow_items"]}
+
+
+def test_page_workflow_items_are_this_students_academic_risk_items(client):
+    client.post(
+        "/api/workflows",
+        json={**APPROVE_PAYLOAD, "trigger": "Intervention approved — scoping probe"},
+    )
+    other_stage = client.post(
+        "/api/workflows",
+        json={
+            **APPROVE_PAYLOAD,
+            "stage": "career_alumni",
+            "trigger": "Career item that belongs on another page",
+        },
+    ).json()["id"]
+
+    items = client.get("/api/academic-risk/profile").json()["workflow_items"]
+    assert items, "Expected at least the item just created"
+    assert other_stage not in {item["id"] for item in items}
+    for item in items:
+        assert item["stage"] == "academic_risk"
+        assert {"id", "trigger", "owner_name", "owner_role", "status"} <= item.keys()
+
+
 def test_approved_item_appears_in_workflow_list(client):
     created = client.post("/api/workflows", json=APPROVE_PAYLOAD)
     assert created.status_code == 201

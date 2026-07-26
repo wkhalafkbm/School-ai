@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import WorkflowItem
+from app.stages import STAGES, WORKFLOW_STATUSES
 
 router = APIRouter(prefix="/api/workflows", tags=["workflows"])
 
@@ -51,6 +52,23 @@ class WorkflowItemPatch(BaseModel):
     due_date: Optional[date] = None
 
 
+def _validate(field: str, value: str, vocabulary: frozenset[str]) -> None:
+    """
+    A stage or status outside the vocabulary is a row no page will ever show
+    (issue #68), so reject it here rather than store something invisible. The
+    error names the whole vocabulary — the caller is usually an agent, and the
+    list is the only correction it gets.
+    """
+    if value not in vocabulary:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Unknown {field}: {value!r}. "
+                f"Valid values: {', '.join(sorted(vocabulary))}."
+            ),
+        )
+
+
 @router.get("", response_model=list[WorkflowItemResponse])
 def list_workflows(db: Session = Depends(get_db)):
     return db.query(WorkflowItem).all()
@@ -58,6 +76,9 @@ def list_workflows(db: Session = Depends(get_db)):
 
 @router.post("", response_model=WorkflowItemResponse, status_code=201)
 def create_workflow_item(body: WorkflowItemCreate, db: Session = Depends(get_db)):
+    _validate("stage", body.stage, STAGES)
+    _validate("status", body.status, WORKFLOW_STATUSES)
+
     now = time.monotonic()
     for cached_key, (_, created_at) in list(_recent_creates.items()):
         if now - created_at > _DEDUPE_WINDOW_SECONDS:
@@ -81,6 +102,7 @@ def create_workflow_item(body: WorkflowItemCreate, db: Session = Depends(get_db)
         due_date=body.due_date,
         description=body.description,
         student_id=body.student_id,
+        created_date=date.today(),
         data_source="demo",
     )
     db.add(item)
@@ -97,6 +119,7 @@ def update_workflow_item(item_id: str, body: WorkflowItemPatch, db: Session = De
     if not item:
         raise HTTPException(status_code=404, detail=f"Workflow item {item_id!r} not found")
     if body.status is not None:
+        _validate("status", body.status, WORKFLOW_STATUSES)
         item.status = body.status
     if body.due_date is not None:
         item.due_date = body.due_date

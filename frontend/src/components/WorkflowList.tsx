@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import StatusBadge from "./StatusBadge";
 import { WORKFLOW_STATUS_MAP, WorkflowStatus } from "@/lib/status";
+import { Stage, STAGE_LABELS } from "@/lib/stages";
 
 export interface WorkflowItem {
   id: string;
@@ -97,7 +98,9 @@ export default function WorkflowList({ items }: Props) {
         <tbody>
           {visible.map((item) => (
             <tr key={item.id} className="border-b last:border-0">
-              <td className="py-2 pr-4 capitalize">{item.stage}</td>
+              <td className="py-2 pr-4">
+                {STAGE_LABELS[item.stage as Stage] ?? item.stage}
+              </td>
               <td className="py-2 pr-4">{triggerLabel(item.trigger)}</td>
               <td className="py-2 pr-4">{item.owner_name ?? "Unassigned"}</td>
               <td className="py-2 pr-4">{item.owner_role}</td>

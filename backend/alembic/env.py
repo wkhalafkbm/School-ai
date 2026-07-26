@@ -1,4 +1,3 @@
-import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -9,10 +8,14 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Allow DATABASE_URL env var to override alembic.ini
-database_url = os.getenv("DATABASE_URL")
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+from app.database import resolve_database_url
+
+# A caller that supplied its own URL — the test suite pointing at a throwaway
+# database — is left alone. Otherwise resolve it the way the app does, from
+# DATABASE_URL or the repo's .env, so `alembic upgrade head` and the running
+# backend can never disagree about which database they mean.
+if not config.get_main_option("sqlalchemy.url", None):
+    config.set_main_option("sqlalchemy.url", resolve_database_url())
 
 from app.models import Base
 target_metadata = Base.metadata

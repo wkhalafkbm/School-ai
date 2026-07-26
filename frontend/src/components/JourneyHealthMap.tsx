@@ -1,23 +1,10 @@
 import { StatusCode, STATUS_CLASSES } from "@/lib/status";
+import { JOURNEY_HEALTH_STAGES, JourneyHealthStage, STAGE_LABELS } from "@/lib/stages";
 
-export type JourneyHealth = {
-  onboarding: StatusCode;
-  registration: StatusCode;
-  academic_progress: StatusCode;
-  graduation_planning: StatusCode;
-  career: StatusCode;
-};
-
-const STAGE_LABELS: Record<keyof JourneyHealth, string> = {
-  onboarding: "Onboarding",
-  registration: "Registration",
-  academic_progress: "Academic Progress",
-  graduation_planning: "Graduation Planning",
-  career: "Career",
-};
+export type JourneyHealth = Record<JourneyHealthStage, StatusCode>;
 
 export default function JourneyHealthMap({ health }: { health: JourneyHealth }) {
-  const stages = Object.keys(STAGE_LABELS) as (keyof JourneyHealth)[];
+  const stages: readonly JourneyHealthStage[] = JOURNEY_HEALTH_STAGES;
   return (
     <div className="flex gap-3">
       {stages.map((stage) => {

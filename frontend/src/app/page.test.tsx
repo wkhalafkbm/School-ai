@@ -11,18 +11,18 @@ const METRICS = {
 };
 
 const HEALTH = {
-  onboarding: "watch",
-  registration: "on_track",
-  academic_progress: "urgent",
-  graduation_planning: "urgent",
-  career: "watch",
+  admissions: "watch",
+  enrollment: "on_track",
+  academic_risk: "urgent",
+  progression: "urgent",
+  career_alumni: "watch",
 };
 
 const QUEUE = [
   {
     student_id: "stu-003",
     student_name: "Fahad Al-Ajmi",
-    stage: "academic_progress",
+    stage: "academic_risk",
     status: "urgent",
     reason: "LMS risk flag raised",
   },

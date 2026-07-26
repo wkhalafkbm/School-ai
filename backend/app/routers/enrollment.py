@@ -77,7 +77,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     pending_count = db.execute(
         text("""
             SELECT COUNT(*) FROM workflow_items
-            WHERE stage = 'registration' AND status IN ('pending', 'in_review')
+            WHERE stage = 'enrollment' AND status IN ('pending', 'in_review')
         """)
     ).scalar() or 0
 

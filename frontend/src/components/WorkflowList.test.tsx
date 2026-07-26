@@ -34,8 +34,17 @@ describe("WorkflowList", () => {
   it("renders the stage for each workflow item", () => {
     render(<WorkflowList items={ITEMS} />);
     const table = screen.getByRole("table");
-    expect(within(table).getByText("admissions")).toBeInTheDocument();
-    expect(within(table).getByText("enrollment")).toBeInTheDocument();
+    expect(within(table).getByText("Admissions")).toBeInTheDocument();
+    expect(within(table).getByText("Enrollment")).toBeInTheDocument();
+  });
+
+  // A stage id is a vocabulary value, not a label — "academic_risk" capitalized
+  // reads as "Academic_risk" in the table (#68).
+  it("labels a multi-word stage the way the nav does", () => {
+    render(
+      <WorkflowList items={[{ ...ITEMS[0], id: "wfl-003", stage: "academic_risk" }]} />
+    );
+    expect(within(screen.getByRole("table")).getByText("Academic Risk")).toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------

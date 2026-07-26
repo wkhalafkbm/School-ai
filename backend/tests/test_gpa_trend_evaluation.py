@@ -120,12 +120,12 @@ def test_evaluate_trends_creates_one_item_per_flagged_student(client):
     assert len(trend_items(client)) == summary["created"]
 
 
-def test_created_items_carry_the_academic_progress_stage(client):
+def test_created_items_carry_the_academic_risk_stage(client):
     client.post(EVALUATE_URL)
     items = trend_items(client)
     assert items
     for item in items:
-        assert item["stage"] == "academic_progress"
+        assert item["stage"] == "academic_risk"
 
 
 # ---------------------------------------------------------------------------
@@ -278,13 +278,13 @@ def test_non_declining_students_get_no_item(client, engine, student_id):
 
 
 def test_created_items_satisfy_the_academic_risk_page_query(client, engine):
-    """The Academic Risk page reads workflow items by stage = 'academic_progress'."""
+    """The Academic Risk page reads workflow items by stage = 'academic_risk'."""
     client.post(EVALUATE_URL)
     with engine.connect() as conn:
         triggers = conn.execute(
             text("""
                 SELECT trigger FROM workflow_items
-                WHERE stage = 'academic_progress' AND status = 'pending'
+                WHERE stage = 'academic_risk' AND status = 'pending'
             """)
         ).scalars().all()
     assert "gpa_trend:2024-Fall" in triggers
