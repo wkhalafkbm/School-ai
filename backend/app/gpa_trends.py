@@ -6,8 +6,9 @@ database plumbing around it. Two entry points share that rule:
 
 - evaluate_gpa_trends() sweeps the population and records a workflow item for
   each newly flagged student (#64).
-- build_gpa_trend() reads one student's trend for display (#65), computing the
-  status on read and never persisting it.
+- build_gpa_history() reads one student's series and verdict (#65, #67),
+  computing the status on read and never persisting it; build_gpa_trend() adds
+  the workflow item the Academic Risk page shows beside it.
 
 No AI in either path.
 """
@@ -96,13 +97,14 @@ def _term_series(db: Session, student_id: str) -> list[dict]:
     ]
 
 
-def build_gpa_trend(db: Session, student_id: str) -> dict:
+def build_gpa_history(db: Session, student_id: str) -> dict:
     """
-    One student's GPA trend, computed on read for display.
+    One student's term series plus the trend verdict, computed on read.
 
-    Returns the term series plus the trend verdict. Nothing here is persisted:
-    the status is a fact about the GPA history, recomputed every request, so a
-    completed workflow item can never suppress it.
+    Nothing here is persisted: the status is a fact about the GPA history,
+    recomputed every request, so a completed workflow item can never suppress
+    it. Shared by the Academic Risk trend panel (#65) and the agents' read tool
+    (#67), so the page and the narrated rationale cannot disagree.
     """
     series = _term_series(db, student_id)
 
@@ -142,6 +144,16 @@ def build_gpa_trend(db: Session, student_id: str) -> dict:
         "status": status,
         "reason": result.reason,
         "rules_fired": list(result.rules_fired),
+    }
+
+
+def build_gpa_trend(db: Session, student_id: str) -> dict:
+    """
+    The trend as the Academic Risk page shows it: the verdict above, plus the
+    workflow item it opened — a different question, answered side by side.
+    """
+    return {
+        **build_gpa_history(db, student_id),
         "workflow_item": _linked_workflow_item(db, student_id),
     }
 

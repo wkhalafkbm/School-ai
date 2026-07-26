@@ -368,3 +368,37 @@ def test_every_fixture_record_has_data_source():
             assert record["data_source"] in ("SIS", "LMS", "demo"), (
                 f"{table}.json record[{i}] has invalid data_source '{record['data_source']}'"
             )
+
+
+# ---------------------------------------------------------------------------
+# Issue #67 — the scripted fallback tells the same story as the live agent
+# ---------------------------------------------------------------------------
+
+RECOMMENDATION_FIXTURES = FIXTURES_DIR / "recommendations"
+
+
+def test_scripted_engagement_rationale_mentions_the_gpa_trend():
+    """When AI_MODE=scripted (or a live run falls back), the engagement stage
+    still has to talk about the decline the Trend toggle is displaying."""
+    payload = json.loads(
+        (RECOMMENDATION_FIXTURES / "academic_risk_engagement.json").read_text()
+    )
+    result = payload["result"]
+    series = term_gpa_by_student()[DECLINE_TO_PROBATION]
+    latest, previous = series[-1], series[-2]
+
+    assert "GPA" in result
+    assert f"{previous['term_gpa']:.2f}" in result, (
+        f"the prior term GPA {previous['term_gpa']:.2f} is missing from the "
+        "scripted engagement rationale"
+    )
+    assert f"{latest['term_gpa']:.2f}" in result
+    assert latest["term"] in result
+
+
+def test_scripted_engagement_fixture_keeps_its_fallback_envelope():
+    payload = json.loads(
+        (RECOMMENDATION_FIXTURES / "academic_risk_engagement.json").read_text()
+    )
+    assert payload["stage"] == "academic_risk_engagement"
+    assert payload["source"] == "fallback"

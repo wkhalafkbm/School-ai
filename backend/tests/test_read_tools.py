@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -20,6 +21,10 @@ TEST_DATABASE_URL = os.getenv(
     "postgresql://waleedkhalaf@/school_ai_test?host=/tmp",
 )
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
+STUDENTS_TOOL_SPEC = (
+    Path(__file__).parent.parent.parent
+    / "orchestrate" / "tools" / "read" / "students_tools.yaml"
+)
 
 
 @pytest.fixture(scope="module")
@@ -758,3 +763,98 @@ def test_matched_mentor_is_the_assigned_mentee_mentor_pairing(client):
 
 def test_matched_mentor_unknown_student_returns_404(client):
     assert client.get("/api/students/stu-999/matched-mentor").status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Cycle 33 — GET /api/students/{id}/gpa-history (issue #67)
+#
+# The agents' read-only window onto the per-term GPA history the Academic Risk
+# Trend toggle displays. The verdict comes from the same deterministic rule the
+# backend uses (#64) — the agent narrates it, it never decides it.
+# ---------------------------------------------------------------------------
+
+GPA_HISTORY_PATH = "/api/students/{student_id}/gpa-history"
+
+
+def test_gpa_history_returns_200(client):
+    assert client.get("/api/students/stu-003/gpa-history").status_code == 200
+
+
+def test_gpa_history_returns_the_series_in_chronological_order(client):
+    data = client.get("/api/students/stu-003/gpa-history").json()
+    assert [t["term"] for t in data["terms"]] == [
+        "2023-Fall", "2024-Spring", "2024-Fall",
+    ]
+    assert [t["term_gpa"] for t in data["terms"]] == [2.4, 1.9, 1.4]
+    assert data["terms"][-1]["cumulative_gpa"] == 1.9
+
+
+def test_gpa_history_names_the_student(client):
+    data = client.get("/api/students/stu-003/gpa-history").json()
+    assert data["student_id"] == "stu-003"
+    assert data["student_name"] == "Fahad Al-Ajmi"
+
+
+def test_gpa_history_reports_the_trend_verdict_for_a_flagged_student(client):
+    data = client.get("/api/students/stu-003/gpa-history").json()
+    assert data["trend_status"] == "urgent"
+    assert "1.90" in data["trend_reason"] and "1.40" in data["trend_reason"]
+    assert "sharp_drop" in data["rules_fired"]
+
+
+def test_gpa_history_withholds_a_status_for_an_unflagged_student(client):
+    """stu-005 climbs steadily — there is no declining trend to report."""
+    data = client.get("/api/students/stu-005/gpa-history").json()
+    assert len(data["terms"]) >= 2
+    assert data["trend_status"] is None
+    assert data["rules_fired"] == []
+    assert "No declining trend" in data["trend_reason"]
+
+
+def test_gpa_history_of_a_student_with_no_rows_is_an_empty_series(client):
+    """stu-001 is an applicant — no completed terms, so nothing to trend."""
+    response = client.get("/api/students/stu-001/gpa-history")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["terms"] == []
+    assert data["trend_status"] is None
+    assert data["trend_reason"], "an empty series still needs an explanation"
+
+
+def test_gpa_history_unknown_student_returns_404(client):
+    assert client.get("/api/students/stu-999/gpa-history").status_code == 404
+
+
+# --- the tool spec agents read must match the endpoint it describes ---
+
+def _spec_operation(path: str) -> dict:
+    spec = yaml.safe_load(STUDENTS_TOOL_SPEC.read_text())
+    assert path in spec["paths"], (
+        f"{path} missing from students_tools.yaml — agents cannot call an "
+        "endpoint that is not in the tool spec"
+    )
+    return spec["paths"][path]["get"]
+
+
+def test_gpa_history_is_exposed_in_the_students_read_tool_spec():
+    operation = _spec_operation(GPA_HISTORY_PATH)
+    assert operation["operationId"].startswith("get_gpa_history")
+    assert operation["tags"] == ["students"]
+
+
+def test_gpa_history_tool_spec_matches_the_live_endpoint():
+    """The spec is generated from the route — summary, description and
+    operationId must not drift from what FastAPI actually serves."""
+    served = app.openapi()["paths"][GPA_HISTORY_PATH]["get"]
+    spec = _spec_operation(GPA_HISTORY_PATH)
+    assert spec["operationId"] == served["operationId"]
+    assert spec["summary"] == served["summary"]
+    assert spec["description"] == served["description"]
+
+
+def test_gpa_history_tool_description_tells_the_agent_what_it_gets():
+    """The description is the agent's only guide to the payload — it must name
+    the series and the trend verdict, not just say 'GPA history'."""
+    description = _spec_operation(GPA_HISTORY_PATH)["description"].lower()
+    assert "term" in description
+    assert "trend" in description

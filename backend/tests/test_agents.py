@@ -319,3 +319,73 @@ def test_career_alumni_agent_instructions_have_pre_response_self_check():
         "self-check requiring the stated mentor to match get_student_matched_mentor's "
         "returned name exactly before the response is sent"
     )
+
+
+# ---------------------------------------------------------------------------
+# Cycle 11 — the engagement agent can see the GPA history the Trend toggle
+# shows (issue #67). Strictly narrative: it reads the trend and explains it.
+# Detection and workflow-item creation stay deterministic in the backend (#64).
+# ---------------------------------------------------------------------------
+
+
+GPA_HISTORY_TOOL = "get_gpa_history_api_students__student_id__gpa_history_get"
+ENGAGEMENT_AGENT = "academic_risk_engagement_agent.yaml"
+
+
+def _engagement_agent() -> dict:
+    return yaml.safe_load((AGENTS_DIR / ENGAGEMENT_AGENT).read_text())
+
+
+def test_engagement_agent_tools_include_the_gpa_history_tool():
+    tools = _engagement_agent().get("tools", [])
+    assert (
+        GPA_HISTORY_TOOL in tools or GPA_HISTORY_TOOL.replace("__", "_") in tools
+    ), (
+        "academic_risk_engagement_agent.yaml must include the get_gpa_history "
+        "tool, otherwise its rationale is blind to the per-term GPA series the "
+        "Academic Risk Trend toggle puts on screen"
+    )
+
+
+def test_engagement_agent_instructions_name_the_gpa_history_tool_explicitly():
+    assert "get_gpa_history" in _engagement_agent()["instructions"], (
+        "academic_risk_engagement_agent.yaml instructions must name the "
+        "get_gpa_history tool explicitly rather than only describing GPA "
+        "history in prose"
+    )
+
+
+def test_engagement_agent_instructions_require_referencing_the_trend():
+    instructions_lower = _engagement_agent()["instructions"].lower()
+    assert "trend" in instructions_lower, (
+        "academic_risk_engagement_agent.yaml instructions must tell the agent "
+        "to reference the GPA trend in its rationale when one exists"
+    )
+
+
+def test_engagement_agent_does_not_decide_the_trend_itself():
+    """The rule is the backend's; the agent quotes its verdict, never recomputes it."""
+    instructions_lower = _engagement_agent()["instructions"].lower()
+    assert "do not" in instructions_lower and "trend_reason" in instructions_lower, (
+        "academic_risk_engagement_agent.yaml instructions must forbid inventing "
+        "or recomputing a trend and require quoting the returned trend_status / "
+        "trend_reason, keeping detection deterministic (#64)"
+    )
+
+
+def test_engagement_agent_write_tools_are_unchanged():
+    """#67 is a read-only change: create_workflow_item stays its only write tool."""
+    write_spec = yaml.safe_load(WRITE_TOOLS_PATH.read_text())
+    write_ids = {
+        op["operationId"]
+        for methods in write_spec.get("paths", {}).values()
+        for op in methods.values()
+        if isinstance(op, dict) and "operationId" in op
+    }
+    write_ids |= {i.replace("__", "_") for i in write_ids}
+
+    used_write_tools = [t for t in _engagement_agent()["tools"] if t in write_ids]
+    assert used_write_tools == ["create_workflow_item"], (
+        "the engagement agent's write-tool usage must not change in #67, "
+        f"found: {used_write_tools}"
+    )
