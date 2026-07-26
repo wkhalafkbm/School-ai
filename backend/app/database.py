@@ -7,7 +7,9 @@ from sqlalchemy.orm import sessionmaker, Session
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 DEFAULT_DOTENV = REPO_ROOT / ".env"
-DEFAULT_DATABASE_URL = "postgresql://waleedkhalaf@/school_ai?host=/tmp"
+# The database .env.example and docker-compose.yml both describe — the one a
+# developer who has not copied .env yet is expected to be running.
+DEFAULT_DATABASE_URL = "postgresql://uniai:uniai@localhost:5432/uniaidb"
 
 
 def resolve_database_url(env_file: Path = DEFAULT_DOTENV) -> str:

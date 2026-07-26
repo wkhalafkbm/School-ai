@@ -16,6 +16,23 @@ from app.database import DEFAULT_DATABASE_URL, resolve_database_url
 DOTENV_URL = "postgresql://uniai:uniai@localhost:5433/uniaidb"
 EXPLICIT_URL = "postgresql://someone@/other_db?host=/tmp"
 
+REPO_ROOT = Path(__file__).parent.parent.parent
+ENV_EXAMPLE = REPO_ROOT / ".env.example"
+
+
+def test_the_built_in_default_is_the_one_env_example_documents():
+    """
+    A developer who never copied .env.example gets this fallback, so it has to
+    be the database the project tells them to run — not a third answer that
+    disagrees with both .env.example and docker-compose.
+    """
+    documented = dict(
+        line.split("=", 1)
+        for line in ENV_EXAMPLE.read_text().splitlines()
+        if "=" in line and not line.startswith("#")
+    )["DATABASE_URL"]
+    assert DEFAULT_DATABASE_URL == documented
+
 
 @pytest.fixture
 def dotenv(tmp_path: Path) -> Path:
