@@ -1,4 +1,4 @@
-.PHONY: dev stop test test-api test-e2e test-frontend migrate seed setup import-write-tools import-read-tools
+.PHONY: dev stop test test-api test-e2e test-frontend migrate seed setup import-write-tools import-read-tools verify-write-tools
 
 setup:
 	@if [ ! -f .env ]; then cp .env.example .env; echo "Created .env from .env.example — review before running."; fi
@@ -34,6 +34,11 @@ seed:
 
 import-write-tools:
 	orchestrate tools import --kind openapi --file orchestrate/tools/write_tools.yaml
+
+# Asserts the schema Orchestrate serves agents still matches this repo's spec.
+# Needs a live token: orchestrate env activate school-ai --api-key "$$WXO_API_KEY"
+verify-write-tools:
+	cd backend && ../.venv/bin/pytest -m e2e tests/test_deployed_write_tools.py
 
 import-read-tools:
 	@for f in orchestrate/tools/read/*.yaml; do \
