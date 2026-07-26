@@ -185,3 +185,24 @@ def test_seed_makes_no_writes_when_validation_fails(engine, tmp_path):
     with engine.connect() as conn:
         count = conn.execute(text("SELECT COUNT(*) FROM programs")).scalar()
     assert count == 0, "seed() wrote rows despite validation failure"
+
+
+# ── GPA trend evaluation hook (issue #64) ─────────────────────────────────────
+
+def test_seed_flags_gpa_trends(engine):
+    """A freshly seeded demo database already holds the trend-flagged items."""
+    from app.seed import seed
+
+    seed(TEST_DATABASE_URL, FIXTURES_DIR)
+
+    with engine.connect() as conn:
+        rows = conn.execute(text("""
+            SELECT student_id, priority FROM workflow_items
+            WHERE trigger LIKE 'gpa_trend:%'
+        """)).fetchall()
+
+    assert {(r.student_id, r.priority) for r in rows} == {
+        ("stu-003", "urgent"),
+        ("stu-015", "high"),
+        ("stu-013", "medium"),
+    }

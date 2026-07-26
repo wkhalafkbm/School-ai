@@ -18,6 +18,8 @@ from app.rules import (
     check_credit_limit,
     check_faculty_workload,
     check_financial_hold,
+    check_gpa_trend,
+    gpa_trend_status,
     check_prerequisites,
     check_schedule_conflict,
     check_slo_threshold,
@@ -530,3 +532,194 @@ def test_course_sequencing_pass_long_valid_chain():
         prerequisites=load("prerequisites.json"),
     )
     assert result.passed
+
+
+# ---------------------------------------------------------------------------
+# GPA trend detection — issue #64
+# ---------------------------------------------------------------------------
+
+
+def series(*pairs) -> list[dict]:
+    """Build a chronologically ordered term series from (term, term_gpa) pairs."""
+    return [
+        {"term": term, "term_gpa": gpa, "cumulative_gpa": gpa}
+        for term, gpa in pairs
+    ]
+
+
+def test_gpa_trend_skips_a_student_with_a_single_term():
+    result = check_gpa_trend(series(("2024-Fall", 1.4)))
+    assert result.flagged is False
+    assert result.rules_fired == ()
+
+
+def test_gpa_trend_flags_a_sharp_drop_in_the_latest_term():
+    result = check_gpa_trend(series(("2024-Fall", 3.4), ("2025-Spring", 2.7)))
+    assert result.flagged is True
+    assert result.rules_fired == ("sharp_drop",)
+    assert result.term == "2025-Spring"
+
+
+def test_gpa_trend_reason_states_the_real_numbers_and_term():
+    result = check_gpa_trend(series(("2024-Fall", 3.4), ("2025-Spring", 2.7)))
+    assert "3.4" in result.reason
+    assert "2.7" in result.reason
+    assert "2025-Spring" in result.reason
+
+
+def test_gpa_trend_flags_a_drop_of_exactly_the_sharp_threshold():
+    # stu-003's seeded series moves in exact -0.5 steps; a strict comparison
+    # would drop the demo's headline case.
+    result = check_gpa_trend(series(("2024-Spring", 1.9), ("2024-Fall", 1.4)))
+    assert result.flagged is True
+    assert "sharp_drop" in result.rules_fired
+
+
+def test_gpa_trend_does_not_flag_a_drop_just_under_the_sharp_threshold():
+    result = check_gpa_trend(series(("2024-Spring", 3.0), ("2024-Fall", 2.51)))
+    assert result.flagged is False
+
+
+def test_gpa_trend_flags_two_consecutive_declines_totalling_past_the_threshold():
+    result = check_gpa_trend(
+        series(("2023-Fall", 2.9), ("2024-Spring", 2.65), ("2024-Fall", 2.4))
+    )
+    assert result.flagged is True
+    assert result.rules_fired == ("sustained_decline",)
+    assert result.term == "2024-Fall"
+
+
+def test_gpa_trend_flags_two_declines_totalling_exactly_the_threshold():
+    result = check_gpa_trend(
+        series(("2023-Fall", 3.0), ("2024-Spring", 2.8), ("2024-Fall", 2.6))
+    )
+    assert result.flagged is True
+    assert "sustained_decline" in result.rules_fired
+
+
+def test_gpa_trend_does_not_flag_two_tiny_declines():
+    # The total-drop floor is what stops this shape from firing.
+    result = check_gpa_trend(
+        series(("2023-Fall", 3.72), ("2024-Spring", 3.70), ("2024-Fall", 3.68))
+    )
+    assert result.flagged is False
+
+
+def test_gpa_trend_does_not_flag_two_declines_just_under_the_total_threshold():
+    result = check_gpa_trend(
+        series(("2023-Fall", 3.0), ("2024-Spring", 2.8), ("2024-Fall", 2.62))
+    )
+    assert result.flagged is False
+
+
+def test_gpa_trend_does_not_flag_a_single_small_decline_after_a_rise():
+    result = check_gpa_trend(
+        series(("2023-Fall", 2.0), ("2024-Spring", 2.5), ("2024-Fall", 2.2))
+    )
+    assert result.flagged is False
+
+
+def test_gpa_trend_fires_both_rules_when_both_conditions_hold():
+    result = check_gpa_trend(
+        series(("2023-Fall", 3.5), ("2024-Spring", 3.4), ("2024-Fall", 2.8))
+    )
+    assert result.flagged is True
+    assert set(result.rules_fired) == {"sharp_drop", "sustained_decline"}
+    assert "sharp drop" in result.reason
+    assert "sustained decline" in result.reason
+
+
+def test_gpa_trend_does_not_flag_a_dip_that_recovered():
+    result = check_gpa_trend(
+        series(
+            ("2022-Fall", 2.6), ("2023-Spring", 2.4), ("2023-Fall", 1.9),
+            ("2024-Spring", 2.4), ("2024-Fall", 2.7),
+        )
+    )
+    assert result.flagged is False
+
+
+def test_gpa_trend_does_not_flag_a_steady_low_but_flat_series():
+    result = check_gpa_trend(
+        series(("2023-Fall", 1.8), ("2024-Spring", 1.8), ("2024-Fall", 1.8))
+    )
+    assert result.flagged is False
+    assert result.rules_fired == ()
+
+
+def test_gpa_trend_has_no_absolute_gpa_floor():
+    # A 4.0 → 3.4 fall flags even though 3.4 is objectively fine — catching the
+    # decline early is the whole point over the static "< 2.5" checks.
+    result = check_gpa_trend(series(("2024-Spring", 4.0), ("2024-Fall", 3.4)))
+    assert result.flagged is True
+
+
+def fixture_series(student_id: str) -> list[dict]:
+    """The committed student_term_gpa series for a student, chronologically ordered."""
+    rows = [r for r in load("student_term_gpa.json") if r["student_id"] == student_id]
+    assert rows, f"{student_id} has no student_term_gpa rows"
+    return sorted(rows, key=lambda r: r["term_index"])
+
+
+@pytest.mark.parametrize("student_id,expected_rule", [
+    ("stu-003", "sharp_drop"),          # decline through the 2.0 line
+    ("stu-015", "sharp_drop"),          # single sharp drop, cumulative still healthy
+    ("stu-013", "sustained_decline"),   # two gentle declines
+])
+def test_gpa_trend_flags_the_seeded_declining_trajectories(student_id, expected_rule):
+    result = check_gpa_trend(fixture_series(student_id))
+    assert result.flagged is True, f"{student_id}: {result.reason}"
+    assert expected_rule in result.rules_fired
+
+
+@pytest.mark.parametrize("student_id", [
+    "stu-004",  # dip then recovery
+    "stu-005",  # steady high
+    "stu-019",  # steady but flat around 2.3
+])
+def test_gpa_trend_leaves_the_seeded_non_declining_trajectories_alone(student_id):
+    result = check_gpa_trend(fixture_series(student_id))
+    assert result.flagged is False, f"{student_id} flagged: {result.reason}"
+
+
+def test_gpa_trend_status_is_none_when_no_rule_fired():
+    result = check_gpa_trend(
+        series(("2023-Fall", 3.5), ("2024-Spring", 3.5), ("2024-Fall", 3.5))
+    )
+    assert gpa_trend_status(result, term_gpa=3.5, cumulative_gpa=3.5) is None
+
+
+def test_gpa_trend_status_escalates_to_urgent_below_the_probation_line():
+    result = check_gpa_trend(series(("2024-Spring", 1.9), ("2024-Fall", 1.4)))
+    assert gpa_trend_status(result, term_gpa=1.4, cumulative_gpa=1.9) == "urgent"
+
+
+def test_gpa_trend_status_is_needs_attention_for_a_sharp_drop_from_a_healthy_gpa():
+    result = check_gpa_trend(series(("2024-Spring", 3.0), ("2024-Fall", 2.4)))
+    assert gpa_trend_status(result, term_gpa=2.4, cumulative_gpa=2.8) == "needs_attention"
+
+
+def test_gpa_trend_status_is_watch_for_a_sustained_decline_with_a_healthy_cumulative():
+    result = check_gpa_trend(
+        series(("2023-Fall", 2.9), ("2024-Spring", 2.65), ("2024-Fall", 2.4))
+    )
+    assert gpa_trend_status(result, term_gpa=2.4, cumulative_gpa=2.65) == "watch"
+
+
+def test_gpa_trend_status_escalates_a_sustained_decline_when_the_cumulative_is_low():
+    result = check_gpa_trend(
+        series(("2023-Fall", 2.6), ("2024-Spring", 2.4), ("2024-Fall", 2.1))
+    )
+    assert gpa_trend_status(result, term_gpa=2.1, cumulative_gpa=2.4) == "needs_attention"
+
+
+def test_gpa_trend_status_does_not_escalate_at_exactly_the_probation_line():
+    result = check_gpa_trend(series(("2024-Spring", 2.6), ("2024-Fall", 2.0)))
+    assert gpa_trend_status(result, term_gpa=2.0, cumulative_gpa=2.3) == "needs_attention"
+
+
+def test_gpa_trend_status_stays_watch_at_exactly_the_cumulative_threshold():
+    result = check_gpa_trend(
+        series(("2023-Fall", 2.9), ("2024-Spring", 2.65), ("2024-Fall", 2.4))
+    )
+    assert gpa_trend_status(result, term_gpa=2.4, cumulative_gpa=2.5) == "watch"
