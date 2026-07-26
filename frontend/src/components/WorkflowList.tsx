@@ -8,7 +8,7 @@ export interface WorkflowItem {
   id: string;
   stage: string;
   trigger: string;
-  owner_name: string;
+  owner_name: string | null;
   owner_role: string;
   status: WorkflowStatus;
   description: string;
@@ -17,6 +17,14 @@ export interface WorkflowItem {
 
 interface Props {
   items: WorkflowItem[];
+}
+
+// Triggers written by rule evaluation are idempotency keys, not prose. Relabel
+// the ones we know for display; anything else is already human-readable text.
+function triggerLabel(trigger: string): string {
+  const [kind, detail] = trigger.split(":", 2);
+  if (kind === "gpa_trend" && detail) return `GPA trend detected — ${detail}`;
+  return trigger;
 }
 
 export default function WorkflowList({ items }: Props) {
@@ -90,8 +98,8 @@ export default function WorkflowList({ items }: Props) {
           {visible.map((item) => (
             <tr key={item.id} className="border-b last:border-0">
               <td className="py-2 pr-4 capitalize">{item.stage}</td>
-              <td className="py-2 pr-4">{item.trigger}</td>
-              <td className="py-2 pr-4">{item.owner_name}</td>
+              <td className="py-2 pr-4">{triggerLabel(item.trigger)}</td>
+              <td className="py-2 pr-4">{item.owner_name ?? "Unassigned"}</td>
               <td className="py-2 pr-4">{item.owner_role}</td>
               <td className="py-2 pr-4">
                 <StatusBadge code={WORKFLOW_STATUS_MAP[item.status]} />
