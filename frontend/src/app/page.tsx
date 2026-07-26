@@ -1,4 +1,4 @@
-import KpiCards, { OverviewMetrics } from "@/components/KpiCards";
+import KpiCards, { MetricDetail, OverviewMetrics } from "@/components/KpiCards";
 import JourneyHealthMap, { JourneyHealth } from "@/components/JourneyHealthMap";
 import OverviewCharts, { ChartData } from "@/components/OverviewCharts";
 import PriorityQueue, { PriorityItem } from "@/components/PriorityQueue";
@@ -12,17 +12,23 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export default async function OverviewPage() {
-  const [metrics, health, queue, chartData] = await Promise.all([
+  // The drill-down rides along with the other reads so the panel opens instantly
+  // — no client-side fetch, no spinner inside the panel.
+  const [metrics, health, queue, chartData, attentionDetail] = await Promise.all([
     fetchJson<OverviewMetrics>("/api/overview/metrics"),
     fetchJson<JourneyHealth>("/api/overview/journey-health"),
     fetchJson<PriorityItem[]>("/api/overview/priority-queue"),
     fetchJson<ChartData>("/api/overview/chart-data"),
+    fetchJson<MetricDetail>("/api/overview/metrics/students_needing_attention/detail"),
   ]);
 
   return (
     <main className="space-y-8 p-6">
       <section aria-label="Key Performance Indicators">
-        <KpiCards metrics={metrics} />
+        <KpiCards
+          metrics={metrics}
+          details={{ students_needing_attention: attentionDetail }}
+        />
       </section>
 
       <section aria-label="Journey Health">

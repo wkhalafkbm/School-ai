@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -53,6 +53,87 @@ def metrics(db: Session = Depends(get_db)):
         "registration_issues_resolved": int(registration_issues_resolved),
         "graduation_delays_prevented": int(graduation_delays_prevented),
         "faculty_overload_alerts": int(faculty_overload_alerts),
+    }
+
+
+STUDENTS_NEEDING_ATTENTION = "students_needing_attention"
+
+# The panel shows the six that matter most. Capped in the query, not in the
+# panel, so the payload never carries rows nobody can see.
+DRILL_DOWN_ROW_CAP = 6
+
+METRIC_DETAIL_META: dict[str, dict] = {
+    STUDENTS_NEEDING_ATTENTION: {
+        "definition": (
+            "Students carrying at least one open LMS risk flag — counted once each, "
+            "however many flags they hold."
+        ),
+        "destination": {"label": "Academic Risk", "href": "/academic-risk"},
+    },
+}
+
+
+@router.get("/metrics/{metric_key}/detail")
+def metric_detail(metric_key: str, db: Session = Depends(get_db)):
+    meta = METRIC_DETAIL_META.get(metric_key)
+    if meta is None:
+        raise HTTPException(status_code=404, detail=f"No drill-down for metric {metric_key!r}")
+
+    total = db.execute(
+        text("SELECT COUNT(DISTINCT student_id) FROM lms_signals WHERE risk_flag != 'none'")
+    ).scalar() or 0
+
+    rows = db.execute(
+        text("""
+            WITH student_worst AS (
+                SELECT student_id,
+                    CASE
+                        WHEN bool_or(risk_flag = 'high')   THEN 'urgent'
+                        WHEN bool_or(risk_flag = 'medium') THEN 'needs_attention'
+                        WHEN bool_or(risk_flag = 'low')    THEN 'watch'
+                    END AS status,
+                    CASE
+                        WHEN bool_or(risk_flag = 'high')   THEN 'high'
+                        WHEN bool_or(risk_flag = 'medium') THEN 'medium'
+                        WHEN bool_or(risk_flag = 'low')    THEN 'low'
+                    END AS worst_flag
+                FROM lms_signals
+                WHERE risk_flag != 'none'
+                GROUP BY student_id
+            )
+            SELECT s.id, s.name, p.name AS program_name, w.status, w.worst_flag
+            FROM student_worst w
+            JOIN students s ON s.id = w.student_id
+            LEFT JOIN programs p ON p.id = s.program_id
+            ORDER BY
+                CASE w.status
+                    WHEN 'urgent'          THEN 0
+                    WHEN 'needs_attention' THEN 1
+                    WHEN 'watch'           THEN 2
+                    WHEN 'on_track'        THEN 3
+                    ELSE 4
+                END,
+                s.name
+            LIMIT :cap
+        """),
+        {"cap": DRILL_DOWN_ROW_CAP},
+    ).fetchall()
+
+    return {
+        "metric_key": metric_key,
+        "definition": meta["definition"],
+        "destination": meta["destination"],
+        "total": int(total),
+        "rows": [
+            {
+                "student_id": r.id,
+                "name": r.name,
+                "program_name": r.program_name,
+                "status": r.status,
+                "detail": f"Risk flag: {r.worst_flag}",
+            }
+            for r in rows
+        ],
     }
 
 

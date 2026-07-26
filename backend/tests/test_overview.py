@@ -175,6 +175,101 @@ def test_priority_queue_ordered_by_severity_descending(client):
     assert ranks == sorted(ranks, reverse=True)
 
 
+# ── /api/overview/metrics/{metric_key}/detail ─────────────────────────────────
+
+DETAIL_URL = "/api/overview/metrics/students_needing_attention/detail"
+
+
+def test_metric_detail_returns_200(client):
+    assert client.get(DETAIL_URL).status_code == 200
+
+
+def test_metric_detail_carries_a_definition_a_destination_a_total_and_rows(client):
+    data = client.get(DETAIL_URL).json()
+    assert set(data.keys()) == {"metric_key", "definition", "destination", "total", "rows"}
+    assert data["metric_key"] == "students_needing_attention"
+    assert data["definition"].strip()
+    assert data["destination"] == {"label": "Academic Risk", "href": "/academic-risk"}
+
+
+def test_metric_detail_rows_identify_the_students_behind_the_count(client):
+    rows = client.get(DETAIL_URL).json()["rows"]
+
+    # The seeded at-risk students: stu-003 (high), stu-004 and stu-019 (medium).
+    assert {r["name"] for r in rows} == {"Fahad Al-Ajmi", "Noor Al-Hamad", "Khalid Al-Mansouri"}
+
+    fahad = next(r for r in rows if r["name"] == "Fahad Al-Ajmi")
+    assert fahad == {
+        "student_id": "stu-003",
+        "name": "Fahad Al-Ajmi",
+        "program_name": "Computer Science",
+        "status": "urgent",
+        "detail": "Risk flag: high",
+    }
+
+
+def test_metric_detail_rows_are_ordered_by_severity_then_by_name(client):
+    rows = client.get(DETAIL_URL).json()["rows"]
+    assert [r["name"] for r in rows] == [
+        "Fahad Al-Ajmi",        # urgent — a 'high' flag outranks everything below
+        "Khalid Al-Mansouri",   # needs_attention, and K sorts before N
+        "Noor Al-Hamad",        # needs_attention
+    ]
+
+
+def test_metric_detail_404s_for_a_metric_that_has_no_drill_down_yet(client):
+    # The other four KPI cards are inert this ticket. An unknown key must say so
+    # rather than quietly handing back the first metric's rows.
+    assert client.get("/api/overview/metrics/faculty_overload_alerts/detail").status_code == 404
+    assert client.get("/api/overview/metrics/not_a_metric/detail").status_code == 404
+
+
+@pytest.fixture
+def five_extra_at_risk_students(engine):
+    """Push the at-risk population past the six-row cap, then take it back down.
+
+    They all carry a 'low' flag, so they sort below the seeded students and the
+    cap has to bite in the middle of this group rather than at a natural break.
+    """
+    from sqlalchemy import text
+
+    ids = [f"stu-cap-{i}" for i in range(5)]
+    with engine.connect() as conn:
+        for i, sid in enumerate(ids):
+            conn.execute(
+                text("""
+                    INSERT INTO students (id, name, program_id, status, data_source)
+                    VALUES (:id, :name, 'prog-001', 'enrolled', 'SIS')
+                """),
+                {"id": sid, "name": f"Zzz Capfiller {i}"},
+            )
+            conn.execute(
+                text("""
+                    INSERT INTO lms_signals (id, student_id, course_id, semester, risk_flag, data_source)
+                    VALUES (:id, :sid, 'crs-001', '2024-Fall', 'low', 'LMS')
+                """),
+                {"id": f"lms-cap-{i}", "sid": sid},
+            )
+        conn.commit()
+
+    yield ids
+
+    with engine.connect() as conn:
+        conn.execute(text("DELETE FROM lms_signals WHERE id LIKE 'lms-cap-%'"))
+        conn.execute(text("DELETE FROM students WHERE id LIKE 'stu-cap-%'"))
+        conn.commit()
+
+
+def test_metric_detail_caps_rows_at_six_while_the_total_still_counts_everyone(
+    client, five_extra_at_risk_students
+):
+    data = client.get(DETAIL_URL).json()
+
+    # 3 seeded at-risk students + 5 added by the fixture
+    assert data["total"] == 8
+    assert len(data["rows"]) == 6
+
+
 # ── /api/overview/chart-data ──────────────────────────────────────────────────
 
 def test_chart_data_returns_200(client):
