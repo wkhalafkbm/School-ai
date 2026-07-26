@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 from decimal import Decimal, ROUND_HALF_UP
@@ -340,6 +341,22 @@ def test_term_gpa_values_are_within_the_gpa_scale():
             assert 0.0 <= row[field] <= 4.0, (
                 f"student_term_gpa[{i}] {field}={row[field]} is outside 0.0–4.0"
             )
+
+
+def test_committed_term_gpa_fixture_matches_its_generator():
+    """The 275 rows are generated, not hand-maintained — so the committed file
+    and the generator must never drift apart."""
+    spec = importlib.util.spec_from_file_location(
+        "generate_student_term_gpa",
+        FIXTURES_DIR / "generate_student_term_gpa.py",
+    )
+    generator = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(generator)
+
+    assert generator.build_rows() == load("student_term_gpa"), (
+        "student_term_gpa.json does not match generate_student_term_gpa.py — "
+        "regenerate the fixture instead of editing it by hand"
+    )
 
 
 def test_every_fixture_record_has_data_source():
