@@ -39,24 +39,42 @@ const DETAIL = {
   metric_key: "students_needing_attention",
   definition: "Students carrying at least one open LMS risk flag.",
   destination: { label: "Academic Risk", href: "/academic-risk" },
+  empty_message: "No student is carrying an LMS risk flag right now.",
   total: 14,
   rows: [
     {
-      student_id: "stu-003",
+      id: "stu-003",
       name: "Fahad Al-Ajmi",
-      program_name: "Computer Science",
+      context: "Computer Science",
       status: "urgent",
       detail: "Risk flag: high",
     },
     {
-      student_id: "stu-019",
+      id: "stu-019",
       name: "Khalid Al-Mansouri",
-      program_name: "Business Admin",
+      context: "Business Admin",
       status: "needs_attention",
       detail: "Risk flag: medium",
     },
   ],
 };
+
+const ALL_METRIC_KEYS = [
+  "students_needing_attention",
+  "at_risk_detected_early",
+  "registration_issues_resolved",
+  "graduation_delays_prevented",
+  "faculty_overload_alerts",
+] as const;
+
+const EMPTY_DETAIL = (metric_key: string) => ({
+  metric_key,
+  definition: `Definition for ${metric_key}.`,
+  destination: { label: "Workflow Activity", href: "/workflow-activity" },
+  empty_message: `Nothing counted yet for ${metric_key}.`,
+  total: 0,
+  rows: [],
+});
 
 const BODIES: Record<string, unknown> = {
   "/api/overview/metrics": METRICS,
@@ -64,6 +82,12 @@ const BODIES: Record<string, unknown> = {
   "/api/overview/priority-queue": QUEUE,
   "/api/overview/chart-data": CHART_DATA,
   "/api/overview/metrics/students_needing_attention/detail": DETAIL,
+  ...Object.fromEntries(
+    ALL_METRIC_KEYS.filter((k) => k !== "students_needing_attention").map((k) => [
+      `/api/overview/metrics/${k}/detail`,
+      EMPTY_DETAIL(k),
+    ])
+  ),
 };
 
 function stubFetch() {
@@ -79,14 +103,30 @@ function stubFetch() {
 describe("OverviewPage drill-down data", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("fetches the drill-down alongside its existing reads, in one parallel batch", async () => {
+  it("fetches all five drill-downs alongside its existing reads, in one parallel batch", async () => {
     const fetchMock = stubFetch();
     const { default: Page } = await import("./page");
     render(await Page());
 
     const paths = fetchMock.mock.calls.map(([url]) => new URL(url as string).pathname);
-    expect(paths).toContain("/api/overview/metrics/students_needing_attention/detail");
-    expect(paths).toHaveLength(5);
+    for (const key of ALL_METRIC_KEYS) {
+      expect(paths).toContain(`/api/overview/metrics/${key}/detail`);
+    }
+    expect(paths).toHaveLength(9);
+  });
+
+  it("opens a zero-count card's empty state from server-supplied data, with no client fetch", async () => {
+    const fetchMock = stubFetch();
+    const { default: Page } = await import("./page");
+    render(await Page());
+
+    const callsBeforeClick = fetchMock.mock.calls.length;
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: /Registration Issues Resolved/i }));
+
+    const panel = screen.getByTestId("kpi-drilldown");
+    expect(panel).toHaveTextContent("Nothing counted yet for registration_issues_resolved.");
+    expect(fetchMock.mock.calls).toHaveLength(callsBeforeClick);
   });
 
   it("opens the panel from server-supplied rows, with no client fetch and no loading state", async () => {

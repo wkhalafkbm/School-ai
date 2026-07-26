@@ -14,9 +14,10 @@ export interface OverviewMetrics {
 }
 
 export interface MetricDetailRow {
-  student_id: string;
+  id: string;
   name: string;
-  program_name: string;
+  // Programme for student rows, department for faculty rows.
+  context: string;
   status: StatusCode;
   detail: string;
 }
@@ -25,6 +26,8 @@ export interface MetricDetail {
   metric_key: string;
   definition: string;
   destination: { label: string; href: string };
+  // Shown instead of rows when the count is zero — worded per metric.
+  empty_message: string;
   total: number;
   rows: MetricDetailRow[];
 }
@@ -120,27 +123,38 @@ export default function KpiCards({
             </button>
           </div>
 
-          <ul className="divide-y">
-            {openDetail.rows.map((row) => (
-              <li
-                key={row.student_id}
-                data-testid="drilldown-row"
-                className="flex items-center gap-4 px-4 py-2.5"
-              >
-                <StatusMark code={row.status} />
-                <span className="w-48 shrink-0 text-sm font-medium text-gray-900">{row.name}</span>
-                <span className="w-44 shrink-0 text-sm text-gray-600">{row.program_name}</span>
-                <span className="flex-1 truncate text-sm text-gray-500">{row.detail}</span>
-              </li>
-            ))}
-          </ul>
+          {openDetail.rows.length > 0 ? (
+            <ul className="divide-y">
+              {openDetail.rows.map((row) => (
+                <li
+                  key={row.id}
+                  data-testid="drilldown-row"
+                  className="flex items-center gap-4 px-4 py-2.5"
+                >
+                  <StatusMark code={row.status} />
+                  <span className="w-48 shrink-0 text-sm font-medium text-gray-900">{row.name}</span>
+                  <span className="w-44 shrink-0 text-sm text-gray-600">{row.context}</span>
+                  <span className="flex-1 truncate text-sm text-gray-500">{row.detail}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            // A zero explained in the metric's own terms, not a blank panel.
+            <p
+              data-testid="drilldown-empty"
+              className="px-4 py-6 text-center text-sm italic text-gray-400"
+            >
+              {openDetail.empty_message}
+            </p>
+          )}
 
           <div
             data-testid="drilldown-footer"
             className="flex items-center justify-between border-t px-4 py-2.5 text-xs text-gray-500"
           >
             <span>
-              Showing {openDetail.rows.length} of {openDetail.total}
+              {openDetail.total > 0 &&
+                `Showing ${openDetail.rows.length} of ${openDetail.total}`}
             </span>
             <Link href={openDetail.destination.href} className="text-blue-600 hover:underline">
               View all in {openDetail.destination.label} →

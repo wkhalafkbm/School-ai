@@ -8,81 +8,52 @@ from app.status import StatusCode, status_meta
 router = APIRouter(prefix="/api/overview", tags=["overview"])
 
 
+# One count query per KPI, shared by the cards endpoint and the drill-down's
+# total, so the number on a card and the panel explaining it can never disagree.
+METRIC_COUNT_SQL: dict[str, str] = {
+    "students_needing_attention": (
+        "SELECT COUNT(DISTINCT student_id) FROM lms_signals WHERE risk_flag != 'none'"
+    ),
+    "at_risk_detected_early": """
+        SELECT COUNT(*) FROM students s
+        WHERE s.gpa < 2.5
+          AND NOT EXISTS (
+              SELECT 1 FROM support_cases sc
+              WHERE sc.student_id = s.id
+                AND sc.status != 'closed'
+          )
+    """,
+    "registration_issues_resolved": """
+        SELECT COUNT(*) FROM workflow_items
+        WHERE workflow_type = 'registration_resolution'
+          AND status = 'approved'
+    """,
+    "graduation_delays_prevented": (
+        "SELECT COUNT(*) FROM interventions WHERE status = 'completed'"
+    ),
+    "faculty_overload_alerts": """
+        SELECT COUNT(*) FROM faculty
+        WHERE max_credits IS NOT NULL
+          AND current_credits IS NOT NULL
+          AND current_credits >= max_credits
+    """,
+}
+
+
 @router.get("/metrics")
 def metrics(db: Session = Depends(get_db)):
-    students_needing_attention = db.execute(
-        text("SELECT COUNT(DISTINCT student_id) FROM lms_signals WHERE risk_flag != 'none'")
-    ).scalar() or 0
-
-    at_risk_detected_early = db.execute(
-        text("""
-            SELECT COUNT(*) FROM students s
-            WHERE s.gpa < 2.5
-              AND NOT EXISTS (
-                  SELECT 1 FROM support_cases sc
-                  WHERE sc.student_id = s.id
-                    AND sc.status != 'closed'
-              )
-        """)
-    ).scalar() or 0
-
-    registration_issues_resolved = db.execute(
-        text("""
-            SELECT COUNT(*) FROM workflow_items
-            WHERE workflow_type = 'registration_resolution'
-              AND status = 'approved'
-        """)
-    ).scalar() or 0
-
-    graduation_delays_prevented = db.execute(
-        text("SELECT COUNT(*) FROM interventions WHERE status = 'completed'")
-    ).scalar() or 0
-
-    faculty_overload_alerts = db.execute(
-        text("""
-            SELECT COUNT(*) FROM faculty
-            WHERE max_credits IS NOT NULL
-              AND current_credits IS NOT NULL
-              AND current_credits >= max_credits
-        """)
-    ).scalar() or 0
-
     return {
-        "students_needing_attention": int(students_needing_attention),
-        "at_risk_detected_early": int(at_risk_detected_early),
-        "registration_issues_resolved": int(registration_issues_resolved),
-        "graduation_delays_prevented": int(graduation_delays_prevented),
-        "faculty_overload_alerts": int(faculty_overload_alerts),
+        key: int(db.execute(text(sql)).scalar() or 0)
+        for key, sql in METRIC_COUNT_SQL.items()
     }
 
-
-STUDENTS_NEEDING_ATTENTION = "students_needing_attention"
 
 # The panel shows the six that matter most. Capped in the query, not in the
 # panel, so the payload never carries rows nobody can see.
 DRILL_DOWN_ROW_CAP = 6
 
-METRIC_DETAIL_META: dict[str, dict] = {
-    STUDENTS_NEEDING_ATTENTION: {
-        "definition": (
-            "Students carrying at least one open LMS risk flag — counted once each, "
-            "however many flags they hold."
-        ),
-        "destination": {"label": "Academic Risk", "href": "/academic-risk"},
-    },
-}
 
-
-@router.get("/metrics/{metric_key}/detail")
-def metric_detail(metric_key: str, db: Session = Depends(get_db)):
-    meta = METRIC_DETAIL_META.get(metric_key)
-    if meta is None:
-        raise HTTPException(status_code=404, detail=f"No drill-down for metric {metric_key!r}")
-
-    total = db.execute(
-        text("SELECT COUNT(DISTINCT student_id) FROM lms_signals WHERE risk_flag != 'none'")
-    ).scalar() or 0
-
+def _students_needing_attention_rows(db: Session) -> list[dict]:
     rows = db.execute(
         text("""
             WITH student_worst AS (
@@ -119,21 +90,199 @@ def metric_detail(metric_key: str, db: Session = Depends(get_db)):
         {"cap": DRILL_DOWN_ROW_CAP},
     ).fetchall()
 
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "context": r.program_name,
+            "status": r.status,
+            "detail": f"Risk flag: {r.worst_flag}",
+        }
+        for r in rows
+    ]
+
+
+def _at_risk_detected_early_rows(db: Session) -> list[dict]:
+    # Every row here is uniformly 'watch' — these students were caught before
+    # anyone raised a case — so severity ordering falls through to GPA, worst first.
+    rows = db.execute(
+        text("""
+            SELECT s.id, s.name, p.name AS program_name, s.gpa
+            FROM students s
+            LEFT JOIN programs p ON p.id = s.program_id
+            WHERE s.gpa < 2.5
+              AND NOT EXISTS (
+                  SELECT 1 FROM support_cases sc
+                  WHERE sc.student_id = s.id
+                    AND sc.status != 'closed'
+              )
+            ORDER BY s.gpa, s.name
+            LIMIT :cap
+        """),
+        {"cap": DRILL_DOWN_ROW_CAP},
+    ).fetchall()
+
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "context": r.program_name,
+            "status": StatusCode.watch,
+            "detail": f"GPA {r.gpa:.1f} — no open support case",
+        }
+        for r in rows
+    ]
+
+
+def _registration_issues_resolved_rows(db: Session) -> list[dict]:
+    # An achievement metric: every row is a cleared blocker, uniformly positive.
+    rows = db.execute(
+        text("""
+            SELECT w.id, s.name, p.name AS program_name, w.trigger
+            FROM workflow_items w
+            LEFT JOIN students s ON s.id = w.student_id
+            LEFT JOIN programs p ON p.id = s.program_id
+            WHERE w.workflow_type = 'registration_resolution'
+              AND w.status = 'approved'
+            ORDER BY s.name, w.id
+            LIMIT :cap
+        """),
+        {"cap": DRILL_DOWN_ROW_CAP},
+    ).fetchall()
+
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "context": r.program_name,
+            "status": StatusCode.on_track,
+            "detail": f"Resolved: {r.trigger}",
+        }
+        for r in rows
+    ]
+
+
+def _graduation_delays_prevented_rows(db: Session) -> list[dict]:
+    # An achievement metric: every row is a completed intervention, uniformly positive.
+    rows = db.execute(
+        text("""
+            SELECT i.id, s.name, p.name AS program_name, i.intervention_type
+            FROM interventions i
+            JOIN students s ON s.id = i.student_id
+            LEFT JOIN programs p ON p.id = s.program_id
+            WHERE i.status = 'completed'
+            ORDER BY s.name, i.id
+            LIMIT :cap
+        """),
+        {"cap": DRILL_DOWN_ROW_CAP},
+    ).fetchall()
+
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "context": r.program_name,
+            "status": StatusCode.on_track,
+            "detail": (r.intervention_type or "intervention").replace("_", " ").capitalize(),
+        }
+        for r in rows
+    ]
+
+
+def _faculty_overload_alerts_rows(db: Session) -> list[dict]:
+    # Rows are faculty, so the context column carries department, not programme.
+    rows = db.execute(
+        text("""
+            SELECT id, name, department, current_credits, max_credits
+            FROM faculty
+            WHERE max_credits IS NOT NULL
+              AND current_credits IS NOT NULL
+              AND current_credits >= max_credits
+            ORDER BY current_credits - max_credits DESC, name
+            LIMIT :cap
+        """),
+        {"cap": DRILL_DOWN_ROW_CAP},
+    ).fetchall()
+
+    return [
+        {
+            "id": r.id,
+            "name": r.name,
+            "context": r.department,
+            "status": (
+                StatusCode.urgent
+                if r.current_credits > r.max_credits
+                else StatusCode.needs_attention
+            ),
+            "detail": f"{r.current_credits} of {r.max_credits} credits",
+        }
+        for r in rows
+    ]
+
+
+METRIC_DETAIL_META: dict[str, dict] = {
+    "students_needing_attention": {
+        "definition": (
+            "Students carrying at least one open LMS risk flag — counted once each, "
+            "however many flags they hold."
+        ),
+        "destination": {"label": "Academic Risk", "href": "/academic-risk"},
+        "empty_message": "No student is carrying an LMS risk flag right now.",
+        "rows": _students_needing_attention_rows,
+    },
+    "at_risk_detected_early": {
+        "definition": (
+            "Students below a 2.5 GPA with no open support case — surfaced by the "
+            "platform before anyone raised a case for them."
+        ),
+        "destination": {"label": "Academic Risk", "href": "/academic-risk"},
+        "empty_message": "Every student below a 2.5 GPA already has an open support case.",
+        "rows": _at_risk_detected_early_rows,
+    },
+    "registration_issues_resolved": {
+        "definition": (
+            "Registration-resolution items approved this term — each one a "
+            "registration blocker cleared for a student."
+        ),
+        "destination": {"label": "Workflow Activity", "href": "/workflow-activity"},
+        "empty_message": "No registration issue has been resolved yet this term.",
+        "rows": _registration_issues_resolved_rows,
+    },
+    "graduation_delays_prevented": {
+        "definition": (
+            "Interventions completed this term — each one closed out before it "
+            "could push a graduation date back."
+        ),
+        "destination": {"label": "Progression", "href": "/progression"},
+        "empty_message": "No intervention has been completed yet this term.",
+        "rows": _graduation_delays_prevented_rows,
+    },
+    "faculty_overload_alerts": {
+        "definition": (
+            "Faculty members teaching at or above their credit ceiling this semester."
+        ),
+        "destination": {"label": "Teaching Readiness", "href": "/teaching-readiness"},
+        "empty_message": "No faculty member is at or over their credit ceiling.",
+        "rows": _faculty_overload_alerts_rows,
+    },
+}
+
+
+@router.get("/metrics/{metric_key}/detail")
+def metric_detail(metric_key: str, db: Session = Depends(get_db)):
+    meta = METRIC_DETAIL_META.get(metric_key)
+    if meta is None:
+        raise HTTPException(status_code=404, detail=f"No drill-down for metric {metric_key!r}")
+
+    total = db.execute(text(METRIC_COUNT_SQL[metric_key])).scalar() or 0
+
     return {
         "metric_key": metric_key,
         "definition": meta["definition"],
         "destination": meta["destination"],
+        "empty_message": meta["empty_message"],
         "total": int(total),
-        "rows": [
-            {
-                "student_id": r.id,
-                "name": r.name,
-                "program_name": r.program_name,
-                "status": r.status,
-                "detail": f"Risk flag: {r.worst_flag}",
-            }
-            for r in rows
-        ],
+        "rows": meta["rows"](db),
     }
 
 
