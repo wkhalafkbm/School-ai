@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.evidence import build_evidence
+from app.gpa_trends import evaluate_gpa_trends
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
 from app.status import StatusCode
@@ -294,6 +295,16 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     }
 
     return base, resolvers
+
+
+@router.post("/evaluate-trends")
+def evaluate_trends(db: Session = Depends(get_db)):
+    """
+    Run the deterministic GPA trend rule across the student population and open
+    a workflow item for each newly flagged student. Idempotent: re-running
+    creates nothing new.
+    """
+    return evaluate_gpa_trends(db)
 
 
 @router.get("/profile")

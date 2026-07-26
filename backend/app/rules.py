@@ -2,9 +2,12 @@
 Deterministic rules engine — issue #7.
 
 Every public function is a pure function: explicit inputs, explicit output,
-no side effects. Return type is always RuleResult(passed, reason).
+no side effects. Most return RuleResult(passed, reason); the GPA trend rule
+returns the richer GPATrendResult, which names the rules that fired.
 """
 from dataclasses import dataclass
+
+from app.status import StatusCode
 
 # Higher number = better grade.
 _GRADE_RANK: dict[str, int] = {
@@ -26,6 +29,18 @@ _GRADE_RANK: dict[str, int] = {
 class RuleResult:
     passed: bool
     reason: str
+
+
+@dataclass(frozen=True)
+class GPATrendResult:
+    """
+    Outcome of the GPA trend rule. Unlike RuleResult there is no pass/fail
+    framing: a trend either fires (and names which rules did) or it doesn't.
+    """
+    flagged: bool
+    rules_fired: tuple[str, ...]
+    reason: str
+    term: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -252,3 +267,96 @@ def check_course_sequencing(
             reason=f"Sequencing violations: {'; '.join(violations)}",
         )
     return RuleResult(passed=True, reason="Course sequence is valid")
+
+
+# ---------------------------------------------------------------------------
+# GPA trend detection
+# ---------------------------------------------------------------------------
+
+SHARP_DROP_THRESHOLD = 0.5
+SUSTAINED_DECLINE_THRESHOLD = 0.4
+
+SHARP_DROP = "sharp_drop"
+SUSTAINED_DECLINE = "sustained_decline"
+
+
+def check_gpa_trend(term_series: list[dict]) -> GPATrendResult:
+    """
+    Detect a declining GPA trend in a student's chronologically ordered
+    *term_series* (dicts of {term, term_gpa, cumulative_gpa}).
+
+    Students with fewer than 2 terms are skipped, not flagged.
+    """
+    if len(term_series) < 2:
+        return GPATrendResult(
+            flagged=False,
+            rules_fired=(),
+            reason="Fewer than 2 terms of GPA history — trend not evaluated",
+        )
+
+    latest = term_series[-1]
+    previous = term_series[-2]
+    latest_drop = round(previous["term_gpa"] - latest["term_gpa"], 2)
+
+    fired: list[str] = []
+    reasons: list[str] = []
+
+    if latest_drop >= SHARP_DROP_THRESHOLD:
+        fired.append(SHARP_DROP)
+        reasons.append(
+            f"GPA declined {previous['term_gpa']:.2f} → {latest['term_gpa']:.2f} "
+            f"in {latest['term']} (sharp drop)"
+        )
+
+    if len(term_series) >= 3:
+        earlier = term_series[-3]
+        earlier_drop = round(earlier["term_gpa"] - previous["term_gpa"], 2)
+        total_drop = round(earlier_drop + latest_drop, 2)
+        if (
+            earlier_drop > 0
+            and latest_drop > 0
+            and total_drop >= SUSTAINED_DECLINE_THRESHOLD
+        ):
+            fired.append(SUSTAINED_DECLINE)
+            reasons.append(
+                f"GPA declined {earlier['term_gpa']:.2f} → {previous['term_gpa']:.2f} "
+                f"→ {latest['term_gpa']:.2f} across {earlier['term']}–{latest['term']}, "
+                f"a total of {total_drop:.2f} over two terms (sustained decline)"
+            )
+
+    if not fired:
+        return GPATrendResult(
+            flagged=False,
+            rules_fired=(),
+            reason=(
+                f"No declining trend through {latest['term']}: latest term GPA "
+                f"{latest['term_gpa']:.2f} versus {previous['term_gpa']:.2f} prior"
+            ),
+            term=latest["term"],
+        )
+
+    return GPATrendResult(
+        flagged=True,
+        rules_fired=tuple(fired),
+        reason="; ".join(reasons),
+        term=latest["term"],
+    )
+
+
+def gpa_trend_status(
+    result: GPATrendResult,
+    term_gpa: float,
+    cumulative_gpa: float,
+) -> str | None:
+    """
+    Map a GPA trend result onto the StatusCode vocabulary, composing the trend
+    with the absolute GPA thresholds the static risk checks already use.
+    Returns None when no rule fired — there is no trend status to report.
+    """
+    if not result.flagged:
+        return None
+    if term_gpa < 2.0:
+        return StatusCode.urgent
+    if SHARP_DROP in result.rules_fired or cumulative_gpa < 2.5:
+        return StatusCode.needs_attention
+    return StatusCode.watch

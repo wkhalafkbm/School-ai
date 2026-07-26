@@ -168,6 +168,22 @@ def seed(db_url: str, fixtures_dir: Path = DEFAULT_FIXTURES_DIR) -> None:
 
             conn.execute(table_obj.insert(), filtered)
 
+    _flag_gpa_trends(engine)
+
+
+def _flag_gpa_trends(engine) -> None:
+    """
+    Run the GPA trend evaluation over the freshly loaded data so a demo database
+    already contains the flagged workflow items (issue #64). Idempotent, so a
+    re-seed produces the same set rather than duplicates.
+    """
+    from sqlalchemy.orm import Session
+
+    from app.gpa_trends import evaluate_gpa_trends
+
+    with Session(engine) as session:
+        evaluate_gpa_trends(session)
+
 
 def main() -> None:
     from dotenv import load_dotenv
