@@ -179,17 +179,53 @@ def test_priority_queue_ordered_by_severity_descending(client):
 
 DETAIL_URL = "/api/overview/metrics/students_needing_attention/detail"
 
+# Every metric names its own destination — no two panels may share rows, and a
+# wrong destination would strand the user on an unrelated stage page.
+EXPECTED_DESTINATIONS = {
+    "students_needing_attention": {"label": "Academic Risk", "href": "/academic-risk"},
+    "at_risk_detected_early": {"label": "Academic Risk", "href": "/academic-risk"},
+    "registration_issues_resolved": {"label": "Workflow Activity", "href": "/workflow-activity"},
+    "graduation_delays_prevented": {"label": "Progression", "href": "/progression"},
+    "faculty_overload_alerts": {"label": "Teaching Readiness", "href": "/teaching-readiness"},
+}
 
-def test_metric_detail_returns_200(client):
-    assert client.get(DETAIL_URL).status_code == 200
+ALL_METRIC_KEYS = list(EXPECTED_DESTINATIONS)
 
 
-def test_metric_detail_carries_a_definition_a_destination_a_total_and_rows(client):
-    data = client.get(DETAIL_URL).json()
-    assert set(data.keys()) == {"metric_key", "definition", "destination", "total", "rows"}
-    assert data["metric_key"] == "students_needing_attention"
+@pytest.mark.parametrize("metric_key", ALL_METRIC_KEYS)
+def test_metric_detail_returns_200_for_every_metric(client, metric_key):
+    assert client.get(f"/api/overview/metrics/{metric_key}/detail").status_code == 200
+
+
+@pytest.mark.parametrize("metric_key", ALL_METRIC_KEYS)
+def test_metric_detail_payload_shape_is_identical_across_metrics(client, metric_key):
+    data = client.get(f"/api/overview/metrics/{metric_key}/detail").json()
+    assert set(data.keys()) == {
+        "metric_key", "definition", "destination", "total", "rows", "empty_message",
+    }
+    assert data["metric_key"] == metric_key
     assert data["definition"].strip()
-    assert data["destination"] == {"label": "Academic Risk", "href": "/academic-risk"}
+    assert data["empty_message"].strip()
+    assert data["destination"] == EXPECTED_DESTINATIONS[metric_key]
+    for row in data["rows"]:
+        assert set(row.keys()) == {"id", "name", "context", "status", "detail"}
+
+
+@pytest.mark.parametrize("metric_key", ALL_METRIC_KEYS)
+def test_metric_detail_total_matches_the_kpi_count_on_the_card(client, metric_key):
+    # The panel explains the number on the card, so the two must never disagree.
+    kpi = client.get("/api/overview/metrics").json()[metric_key]
+    detail = client.get(f"/api/overview/metrics/{metric_key}/detail").json()
+    assert detail["total"] == kpi
+    assert len(detail["rows"]) == min(kpi, 6)
+
+
+def test_metric_detail_definitions_are_written_per_metric_not_shared(client):
+    definitions = [
+        client.get(f"/api/overview/metrics/{key}/detail").json()["definition"]
+        for key in ALL_METRIC_KEYS
+    ]
+    assert len(set(definitions)) == len(definitions)
 
 
 def test_metric_detail_rows_identify_the_students_behind_the_count(client):
@@ -200,9 +236,9 @@ def test_metric_detail_rows_identify_the_students_behind_the_count(client):
 
     fahad = next(r for r in rows if r["name"] == "Fahad Al-Ajmi")
     assert fahad == {
-        "student_id": "stu-003",
+        "id": "stu-003",
         "name": "Fahad Al-Ajmi",
-        "program_name": "Computer Science",
+        "context": "Computer Science",
         "status": "urgent",
         "detail": "Risk flag: high",
     }
@@ -217,11 +253,149 @@ def test_metric_detail_rows_are_ordered_by_severity_then_by_name(client):
     ]
 
 
-def test_metric_detail_404s_for_a_metric_that_has_no_drill_down_yet(client):
-    # The other four KPI cards are inert this ticket. An unknown key must say so
-    # rather than quietly handing back the first metric's rows.
-    assert client.get("/api/overview/metrics/faculty_overload_alerts/detail").status_code == 404
+def test_metric_detail_404s_for_an_unknown_metric(client):
     assert client.get("/api/overview/metrics/not_a_metric/detail").status_code == 404
+
+
+# ── at_risk_detected_early — a single-row metric on the seeded data ───────────
+
+def test_at_risk_detected_early_names_the_one_uncased_low_gpa_student(client):
+    data = client.get("/api/overview/metrics/at_risk_detected_early/detail").json()
+
+    # stu-099 is the only student under 2.5 GPA with no open support case;
+    # the other low-GPA students already have one and so are not "early".
+    assert data["total"] == 1
+    assert data["rows"] == [
+        {
+            "id": "stu-099",
+            "name": "Mansour Al-Subaie",
+            "context": "Business Administration",
+            "status": "watch",
+            "detail": "GPA 2.4 — no open support case",
+        }
+    ]
+
+
+# ── registration_issues_resolved — genuinely zero on the seeded data ──────────
+
+def test_registration_issues_resolved_is_empty_but_still_explains_itself(client):
+    data = client.get("/api/overview/metrics/registration_issues_resolved/detail").json()
+
+    assert data["total"] == 0
+    assert data["rows"] == []
+    # The empty message speaks in this metric's own terms, not a generic "no data".
+    assert "registration" in data["empty_message"].lower()
+    assert data["destination"] == EXPECTED_DESTINATIONS["registration_issues_resolved"]
+
+
+@pytest.fixture
+def one_resolved_registration_item(engine):
+    """Approve a registration-resolution item so the zero metric grows a row."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(
+            text("""
+                INSERT INTO workflow_items
+                    (id, student_id, workflow_type, status, "trigger", title, data_source)
+                VALUES
+                    ('wfl-t58', 'stu-002', 'registration_resolution', 'approved',
+                     'Financial hold detected', 'Registration Hold Resolution', 'SIS')
+            """)
+        )
+        conn.commit()
+
+    yield
+
+    with engine.connect() as conn:
+        conn.execute(text("DELETE FROM workflow_items WHERE id = 'wfl-t58'"))
+        conn.commit()
+
+
+def test_registration_issues_resolved_rows_say_what_was_resolved(
+    client, one_resolved_registration_item
+):
+    data = client.get("/api/overview/metrics/registration_issues_resolved/detail").json()
+
+    assert data["total"] == 1
+    assert data["rows"] == [
+        {
+            "id": "wfl-t58",
+            "name": "Mariam Al-Kandari",
+            "context": "Information Systems",
+            "status": "on_track",  # an achievement — resolved items are positive
+            "detail": "Resolved: Financial hold detected",
+        }
+    ]
+
+
+# ── graduation_delays_prevented — an achievement metric ───────────────────────
+
+def test_graduation_delays_prevented_names_the_completed_intervention(client):
+    data = client.get("/api/overview/metrics/graduation_delays_prevented/detail").json()
+
+    assert data["total"] == 1
+    assert data["rows"] == [
+        {
+            "id": "int-004",
+            "name": "Khalid Al-Mansouri",
+            "context": "Computer Science",
+            "status": "on_track",  # an achievement — completed interventions are positive
+            "detail": "Advisor meeting",
+        }
+    ]
+
+
+@pytest.fixture
+def six_more_completed_interventions(engine):
+    """Push completed interventions past the six-row cap."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        for i in range(6):
+            conn.execute(
+                text("""
+                    INSERT INTO interventions
+                        (id, student_id, intervention_type, status, data_source)
+                    VALUES (:id, 'stu-003', 'tutoring_referral', 'completed', 'SIS')
+                """),
+                {"id": f"int-cap-{i}"},
+            )
+        conn.commit()
+
+    yield
+
+    with engine.connect() as conn:
+        conn.execute(text("DELETE FROM interventions WHERE id LIKE 'int-cap-%'"))
+        conn.commit()
+
+
+def test_graduation_delays_prevented_caps_at_six_and_stays_uniformly_positive(
+    client, six_more_completed_interventions
+):
+    data = client.get("/api/overview/metrics/graduation_delays_prevented/detail").json()
+
+    # 1 seeded + 6 from the fixture; the cap bites while total counts everyone.
+    assert data["total"] == 7
+    assert len(data["rows"]) == 6
+    assert all(r["status"] == "on_track" for r in data["rows"])
+
+
+# ── faculty_overload_alerts — rows are faculty, not students ──────────────────
+
+def test_faculty_overload_alerts_shows_department_and_load_against_ceiling(client):
+    data = client.get("/api/overview/metrics/faculty_overload_alerts/detail").json()
+
+    assert data["total"] == 1
+    assert data["rows"] == [
+        {
+            "id": "fac-001",
+            "name": "Dr. Ahmed Al-Rashidi",
+            "context": "Computer Science",  # department — faculty have no programme
+            "status": "urgent",  # 15 credits against a 12-credit ceiling
+            "detail": "15 of 12 credits",
+        }
+    ]
 
 
 @pytest.fixture

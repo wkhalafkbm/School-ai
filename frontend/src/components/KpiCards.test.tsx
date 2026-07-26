@@ -15,14 +15,15 @@ const ATTENTION_DETAIL: MetricDetail = {
   metric_key: "students_needing_attention",
   definition: "Students carrying at least one open LMS risk flag.",
   destination: { label: "Academic Risk", href: "/academic-risk" },
+  empty_message: "No student is carrying an LMS risk flag right now.",
   total: 14,
   rows: [
-    { student_id: "stu-003", name: "Fahad Al-Ajmi", program_name: "Computer Science", status: "urgent", detail: "Risk flag: high" },
-    { student_id: "stu-011", name: "Yousef Al-Otaibi", program_name: "Nursing", status: "urgent", detail: "Risk flag: high" },
-    { student_id: "stu-019", name: "Khalid Al-Mansouri", program_name: "Business Admin", status: "needs_attention", detail: "Risk flag: medium" },
-    { student_id: "stu-004", name: "Noor Al-Hamad", program_name: "Computer Science", status: "needs_attention", detail: "Risk flag: medium" },
-    { student_id: "stu-022", name: "Dana Al-Rashid", program_name: "Mechanical Eng.", status: "watch", detail: "Risk flag: low" },
-    { student_id: "stu-030", name: "Omar Al-Sabah", program_name: "Nursing", status: "watch", detail: "Risk flag: low" },
+    { id: "stu-003", name: "Fahad Al-Ajmi", context: "Computer Science", status: "urgent", detail: "Risk flag: high" },
+    { id: "stu-011", name: "Yousef Al-Otaibi", context: "Nursing", status: "urgent", detail: "Risk flag: high" },
+    { id: "stu-019", name: "Khalid Al-Mansouri", context: "Business Admin", status: "needs_attention", detail: "Risk flag: medium" },
+    { id: "stu-004", name: "Noor Al-Hamad", context: "Computer Science", status: "needs_attention", detail: "Risk flag: medium" },
+    { id: "stu-022", name: "Dana Al-Rashid", context: "Mechanical Eng.", status: "watch", detail: "Risk flag: low" },
+    { id: "stu-030", name: "Omar Al-Sabah", context: "Nursing", status: "watch", detail: "Risk flag: low" },
   ],
 };
 
@@ -30,10 +31,53 @@ const EARLY_DETAIL: MetricDetail = {
   metric_key: "at_risk_detected_early",
   definition: "Low-GPA students with no open support case.",
   destination: { label: "Academic Risk", href: "/academic-risk" },
+  empty_message: "Every student below a 2.5 GPA already has an open support case.",
   total: 1,
   rows: [
-    { student_id: "stu-007", name: "Layla Al-Mutairi", program_name: "Nursing", status: "watch", detail: "GPA 2.3, no open case" },
+    { id: "stu-007", name: "Layla Al-Mutairi", context: "Nursing", status: "watch", detail: "GPA 2.3 — no open support case" },
   ],
+};
+
+// Genuinely zero on the seeded demo data — the panel must explain, not go blank.
+const REGISTRATION_DETAIL: MetricDetail = {
+  metric_key: "registration_issues_resolved",
+  definition: "Registration-resolution items approved this term.",
+  destination: { label: "Workflow Activity", href: "/workflow-activity" },
+  empty_message: "No registration issue has been resolved yet this term.",
+  total: 0,
+  rows: [],
+};
+
+// An achievement metric — every row is uniformly positive, by design.
+const GRADUATION_DETAIL: MetricDetail = {
+  metric_key: "graduation_delays_prevented",
+  definition: "Interventions completed this term.",
+  destination: { label: "Progression", href: "/progression" },
+  empty_message: "No intervention has been completed yet this term.",
+  total: 1,
+  rows: [
+    { id: "int-004", name: "Khalid Al-Mansouri", context: "Computer Science", status: "on_track", detail: "Advisor meeting" },
+  ],
+};
+
+// Faculty rows — context carries department, not programme.
+const FACULTY_DETAIL: MetricDetail = {
+  metric_key: "faculty_overload_alerts",
+  definition: "Faculty at or above their credit ceiling this semester.",
+  destination: { label: "Teaching Readiness", href: "/teaching-readiness" },
+  empty_message: "No faculty member is at or over their credit ceiling.",
+  total: 1,
+  rows: [
+    { id: "fac-001", name: "Dr. Ahmed Al-Rashidi", context: "Computer Science", status: "urgent", detail: "15 of 12 credits" },
+  ],
+};
+
+const ALL_DETAILS = {
+  students_needing_attention: ATTENTION_DETAIL,
+  at_risk_detected_early: EARLY_DETAIL,
+  registration_issues_resolved: REGISTRATION_DETAIL,
+  graduation_delays_prevented: GRADUATION_DETAIL,
+  faculty_overload_alerts: FACULTY_DETAIL,
 };
 
 const ATTENTION_LABEL = "Students Needing Attention";
@@ -248,6 +292,63 @@ describe("KpiCards drill-down panel", () => {
     expect(grid.contains(screen.getByTestId("kpi-drilldown"))).toBe(false);
   });
 
+  it("expands every one of the five cards, each with its own definition and destination", async () => {
+    const user = userEvent.setup();
+    render(<KpiCards metrics={METRICS} details={ALL_DETAILS} />);
+
+    // Identical affordance across the row: all five are real expandable buttons.
+    const cards = screen.getAllByTestId("kpi-card");
+    expect(cards).toHaveLength(5);
+    for (const card of cards) {
+      expect(card.tagName).toBe("BUTTON");
+      expect(card).toHaveAttribute("aria-expanded", "false");
+    }
+
+    const cardLabels: Record<keyof typeof ALL_DETAILS, string> = {
+      students_needing_attention: "Students Needing Attention",
+      at_risk_detected_early: "At-Risk Detected Early",
+      registration_issues_resolved: "Registration Issues Resolved",
+      graduation_delays_prevented: "Graduation Delays Prevented",
+      faculty_overload_alerts: "Faculty Overload Alerts",
+    };
+
+    for (const [key, detail] of Object.entries(ALL_DETAILS)) {
+      const label = cardLabels[key as keyof typeof ALL_DETAILS];
+      await user.click(screen.getByRole("button", { name: new RegExp(label, "i") }));
+
+      expect(screen.getByTestId("drilldown-definition")).toHaveTextContent(detail.definition);
+      const footer = screen.getByTestId("drilldown-footer");
+      const link = within(footer).getByRole("link");
+      expect(link).toHaveAttribute("href", detail.destination.href);
+      expect(link).toHaveTextContent(detail.destination.label);
+    }
+  });
+
+  it("shows department in the context column for faculty rows", async () => {
+    const user = userEvent.setup();
+    render(<KpiCards metrics={METRICS} details={ALL_DETAILS} />);
+
+    await user.click(screen.getByRole("button", { name: /Faculty Overload Alerts/i }));
+
+    const row = screen.getByTestId("drilldown-row");
+    expect(within(row).getByText("Dr. Ahmed Al-Rashidi")).toBeInTheDocument();
+    expect(within(row).getByText("Computer Science")).toBeInTheDocument();
+    expect(within(row).getByText("15 of 12 credits")).toBeInTheDocument();
+    expect(within(row).getByText("Urgent")).toBeInTheDocument();
+  });
+
+  it("renders achievement metrics with uniformly positive statuses", async () => {
+    const user = userEvent.setup();
+    render(<KpiCards metrics={METRICS} details={ALL_DETAILS} />);
+
+    await user.click(screen.getByRole("button", { name: /Graduation Delays Prevented/i }));
+
+    const row = screen.getByTestId("drilldown-row");
+    expect(within(row).getByText("Khalid Al-Mansouri")).toBeInTheDocument();
+    expect(within(row).getByText("On Track")).toBeInTheDocument();
+    expect(within(row).getByText("Advisor meeting")).toBeInTheDocument();
+  });
+
   it("renders rows as plain text with no link and no clickable affordance", async () => {
     const user = userEvent.setup();
     renderCards();
@@ -261,5 +362,74 @@ describe("KpiCards drill-down panel", () => {
       expect(row.className).not.toContain("cursor-pointer");
       expect(row.className).not.toContain("hover:");
     }
+  });
+});
+
+describe("KpiCards zero-count empty state", () => {
+  const renderAll = () => render(<KpiCards metrics={METRICS} details={ALL_DETAILS} />);
+  const ZERO_CARD = /Registration Issues Resolved/i;
+
+  it("a card reading zero still expands to the full panel chrome", async () => {
+    const user = userEvent.setup();
+    renderAll();
+
+    const card = screen.getByRole("button", { name: ZERO_CARD });
+    expect(card).toHaveAttribute("aria-expanded", "false");
+    await user.click(card);
+
+    expect(card).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("kpi-drilldown")).toBeInTheDocument();
+    expect(screen.getByTestId("drilldown-definition")).toHaveTextContent(
+      REGISTRATION_DETAIL.definition
+    );
+  });
+
+  it("explains the zero in the metric's own terms instead of a blank panel", async () => {
+    const user = userEvent.setup();
+    renderAll();
+    await user.click(screen.getByRole("button", { name: ZERO_CARD }));
+
+    expect(screen.queryAllByTestId("drilldown-row")).toHaveLength(0);
+    expect(screen.getByTestId("drilldown-empty")).toHaveTextContent(
+      "No registration issue has been resolved yet this term."
+    );
+  });
+
+  it("still offers the footer link out, but drops the meaningless 'Showing 0 of 0'", async () => {
+    const user = userEvent.setup();
+    renderAll();
+    await user.click(screen.getByRole("button", { name: ZERO_CARD }));
+
+    const footer = screen.getByTestId("drilldown-footer");
+    expect(footer).not.toHaveTextContent(/Showing/i);
+    const link = within(footer).getByRole("link", { name: /view all in workflow activity/i });
+    expect(link).toHaveAttribute("href", "/workflow-activity");
+  });
+
+  it("shows no empty message when the metric has rows", async () => {
+    const user = userEvent.setup();
+    renderAll();
+    await user.click(screen.getByRole("button", { name: /Students Needing Attention/i }));
+
+    expect(screen.queryByTestId("drilldown-empty")).toBeNull();
+    expect(screen.getByTestId("drilldown-footer")).toHaveTextContent("Showing 6 of 14");
+  });
+
+  it("closes a zero-count panel the same three ways as any other", async () => {
+    const user = userEvent.setup();
+    renderAll();
+    const card = screen.getByRole("button", { name: ZERO_CARD });
+
+    await user.click(card);
+    await user.click(card); // second click on the card
+    expect(screen.queryByTestId("kpi-drilldown")).toBeNull();
+
+    await user.click(card);
+    await user.keyboard("{Escape}"); // Esc
+    expect(screen.queryByTestId("kpi-drilldown")).toBeNull();
+
+    await user.click(card);
+    await user.click(screen.getByRole("button", { name: /close/i })); // explicit control
+    expect(screen.queryByTestId("kpi-drilldown")).toBeNull();
   });
 });
