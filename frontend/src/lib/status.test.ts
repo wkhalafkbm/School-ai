@@ -24,6 +24,17 @@ describe("STATUS_CLASSES", () => {
       expect(STATUS_CLASSES[code].classes).toBeTruthy();
     }
   });
+
+  it("has a non-empty accent class for every status code", () => {
+    for (const code of ALL_CODES) {
+      expect(STATUS_CLASSES[code].accent).toBeTruthy();
+    }
+  });
+
+  it("gives every status code a distinct accent so severity is scannable", () => {
+    const accents = ALL_CODES.map((code) => STATUS_CLASSES[code].accent);
+    expect(new Set(accents).size).toBe(ALL_CODES.length);
+  });
 });
 
 // ---------------------------------------------------------------------------
