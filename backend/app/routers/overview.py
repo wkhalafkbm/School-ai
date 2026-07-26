@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.gpa_trends import gpa_trend_queue_rows
+from app.stages import Stage
 from app.status import StatusCode, status_meta
 
 router = APIRouter(prefix="/api/overview", tags=["overview"])
@@ -299,13 +300,13 @@ def _classify(ratio: float) -> str:
 
 @router.get("/journey-health")
 def journey_health(db: Session = Depends(get_db)):
-    # onboarding: ratio of incomplete tasks
+    # admissions: ratio of incomplete onboarding tasks
     row = db.execute(
         text("SELECT COUNT(*) FILTER (WHERE NOT completed), COUNT(*) FROM onboarding_tasks")
     ).one()
-    onboarding_status = _classify(row[0] / row[1] if row[1] else 0)
+    admissions_status = _classify(row[0] / row[1] if row[1] else 0)
 
-    # registration: ratio of open registration_resolution items
+    # enrollment: ratio of open registration_resolution items
     row = db.execute(
         text("""
             SELECT COUNT(*) FILTER (WHERE status != 'approved'), COUNT(*)
@@ -313,9 +314,9 @@ def journey_health(db: Session = Depends(get_db)):
             WHERE workflow_type = 'registration_resolution'
         """)
     ).one()
-    registration_status = _classify(row[0] / row[1] if row[1] else 0)
+    enrollment_status = _classify(row[0] / row[1] if row[1] else 0)
 
-    # academic_progress: ratio of students with lms risk_flag != 'none'
+    # academic_risk: ratio of students with lms risk_flag != 'none'
     row = db.execute(
         text("""
             SELECT COUNT(DISTINCT student_id) FILTER (WHERE risk_flag != 'none'),
@@ -325,16 +326,16 @@ def journey_health(db: Session = Depends(get_db)):
     ).one()
     academic_status = _classify(row[0] / row[1] if row[1] else 0)
 
-    # graduation_planning: ratio of students NOT on track
+    # progression: ratio of students NOT on track
     row = db.execute(
         text("""
             SELECT COUNT(*) FILTER (WHERE NOT on_track), COUNT(*)
             FROM student_course_progress
         """)
     ).one()
-    graduation_status = _classify(row[0] / row[1] if row[1] else 0)
+    progression_status = _classify(row[0] / row[1] if row[1] else 0)
 
-    # career: ratio of pathways NOT in a positive state
+    # career_alumni: ratio of pathways NOT in a positive state
     row = db.execute(
         text("""
             SELECT COUNT(*) FILTER (WHERE status NOT IN ('employed', 'active_search')),
@@ -345,11 +346,11 @@ def journey_health(db: Session = Depends(get_db)):
     career_status = _classify(row[0] / row[1] if row[1] else 0)
 
     return {
-        "onboarding": onboarding_status,
-        "registration": registration_status,
-        "academic_progress": academic_status,
-        "graduation_planning": graduation_status,
-        "career": career_status,
+        Stage.admissions: admissions_status,
+        Stage.enrollment: enrollment_status,
+        Stage.academic_risk: academic_status,
+        Stage.progression: progression_status,
+        Stage.career_alumni: career_status,
     }
 
 
@@ -367,7 +368,7 @@ def _persisted_queue_rows(db: Session) -> list[dict]:
             SELECT
                 s.id AS student_id,
                 s.name AS student_name,
-                'academic_progress' AS stage,
+                'academic_risk' AS stage,
                 'urgent' AS status,
                 'LMS risk flag raised' AS reason
             FROM students s
@@ -379,7 +380,7 @@ def _persisted_queue_rows(db: Session) -> list[dict]:
             SELECT
                 s.id,
                 s.name,
-                'graduation_planning',
+                'progression',
                 'needs_attention',
                 'Behind on credits — not on track for graduation'
             FROM students s
@@ -391,7 +392,7 @@ def _persisted_queue_rows(db: Session) -> list[dict]:
             SELECT
                 s.id,
                 s.name,
-                'onboarding',
+                'admissions',
                 'watch',
                 'Incomplete onboarding tasks'
             FROM students s

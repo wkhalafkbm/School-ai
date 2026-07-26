@@ -92,9 +92,18 @@ components:
         stage:
           type: string
           title: Stage
+          enum:
+          - admissions
+          - enrollment
+          - teaching_readiness
+          - academic_risk
+          - progression
+          - career_alumni
           description: >-
             Journey stage that generated this item. One of: admissions, enrollment,
-            teaching_readiness, academic_risk, progression, career.
+            teaching_readiness, academic_risk, progression, career_alumni. The stage
+            decides which page shows the item, so a value outside this list is
+            rejected with 422.
         trigger:
           type: string
           title: Trigger
@@ -115,6 +124,14 @@ components:
         status:
           type: string
           title: Status
+          enum:
+          - pending
+          - in_review
+          - in_progress
+          - approved
+          - completed
+          - blocked
+          - overdue
           description: Always "pending" on creation.
           default: pending
         description:
@@ -142,12 +159,20 @@ components:
         Only status and due_date may be changed after creation.
       properties:
         status:
-          anyOf:
-          - type: string
-          - type: 'null'
+          type: string
+          enum:
+          - pending
+          - in_review
+          - in_progress
+          - approved
+          - completed
+          - blocked
+          - overdue
           title: Status
           description: >-
-            New status. One of: pending, in_progress, approved, complete.
+            New status. One of: pending, in_review, in_progress, approved,
+            completed, blocked, overdue. "completed" is the terminal value —
+            "complete" is not a status and is rejected with 422.
         due_date:
           anyOf:
           - type: string

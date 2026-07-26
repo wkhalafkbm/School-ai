@@ -116,6 +116,20 @@ const MOCK_PROFILE = {
     status: "pending",
     created_date: "2024-10-17",
   },
+  // The sponsor escalation has its own panel and is excluded from this list by
+  // the endpoint, so these are the other items on the same student and stage.
+  workflow_items: [
+    {
+      id: "wfl-approved-1",
+      stage: "academic_risk",
+      trigger: "Intervention approved — routing to student affairs",
+      owner_name: "Student Affairs Officer",
+      owner_role: "student affairs officer",
+      status: "pending",
+      description: "Follow up with Fahad Al-Ajmi on approved intervention plan",
+      created_date: "2026-07-26",
+    },
+  ],
   engagement_assessment: {
     rationale:
       "Fahad shows **low LMS login frequency** and a below-average assignment submission rate over the last 30 days. Early outreach is recommended before engagement drops further.",
@@ -152,6 +166,23 @@ beforeEach(() => {
 
 describe("AcademicRiskPage", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  // Issue #68 — the Approve button writes stage "academic_risk"; the page has
+  // to show what it wrote, not just the seeded escalation.
+  it("lists the open workflow items for this student at this stage", () => {
+    renderResolvedPage();
+
+    expect(
+      screen.getByText("Intervention approved — routing to student affairs")
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Student Affairs Officer/)).toBeInTheDocument();
+  });
+
+  it("renders no workflow panel when the student has no open items", () => {
+    renderResolvedPage({ ...MOCK_PROFILE, workflow_items: [] });
+
+    expect(screen.queryByText("Open Workflow Items")).not.toBeInTheDocument();
+  });
 
   it("renders the Academic Risk heading and health status", () => {
     renderResolvedPage();
@@ -396,6 +427,24 @@ describe("AcademicRiskPage", () => {
         ([, opts]: any[]) => opts?.method === "POST"
       );
       expect(postCalls).toHaveLength(1);
+    });
+  });
+
+  // Issue #68 — the item the approval writes belongs on this page, so the page
+  // reloads its profile once the POST succeeds instead of waiting for a manual
+  // refresh to reveal the work it just created.
+  it("reloads the profile after a successful approval", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    renderResolvedPage();
+    const streamsBefore = StubEventSource.instances.length;
+
+    fireEvent.click(screen.getByRole("button", { name: /approve intervention/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    await waitFor(() => {
+      expect(StubEventSource.instances.length).toBe(streamsBefore + 1);
     });
   });
 

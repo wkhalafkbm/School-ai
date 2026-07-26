@@ -4,7 +4,14 @@ import { useState } from "react";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export default function AcademicRiskActions({ studentId }: { studentId: string }) {
+export default function AcademicRiskActions({
+  studentId,
+  onCreated,
+}: {
+  studentId: string;
+  /** The created item belongs on this page, so the page reloads to show it (#68). */
+  onCreated?: () => void;
+}) {
   const [open, setOpen] = useState(false);
 
   async function handleConfirm() {
@@ -22,6 +29,7 @@ export default function AcademicRiskActions({ studentId }: { studentId: string }
       }),
     });
     setOpen(false);
+    onCreated?.();
   }
 
   return (

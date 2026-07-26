@@ -11,6 +11,7 @@ from app.evidence import build_evidence
 from app.gpa_trends import build_gpa_trend, evaluate_gpa_trends
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
+from app.stages import Stage
 from app.status import StatusCode
 from app.streaming import ResolverFn, resolve_or_fallback, set_nested, stream_profile
 
@@ -203,7 +204,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
             SELECT id, trigger, owner_name, owner_role, status, created_date
             FROM workflow_items
             WHERE student_id = :sid
-              AND stage = 'academic_progress'
+              AND stage = 'academic_risk'
               AND workflow_type = 'intervention_approval'
             ORDER BY created_date DESC
             LIMIT 1
@@ -257,7 +258,42 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
         )
     )
 
+    # --- the rest of this student's items at this stage ---
+    # The escalation above has its own panel, so it is excluded here. What is
+    # left is the rest of the desk, including whatever this page's own Approve
+    # button just wrote — before #68 that item carried a stage no query here
+    # matched, so the page never showed the work it had just created.
+    workflow_items = [
+        {
+            "id": row.id,
+            "stage": row.stage,
+            "trigger": row.trigger,
+            "owner_name": row.owner_name,
+            "owner_role": row.owner_role,
+            "status": row.status,
+            "description": row.description,
+            "created_date": None if row.created_date is None else str(row.created_date),
+        }
+        for row in db.execute(
+            text("""
+                SELECT id, stage, trigger, owner_name, owner_role, status,
+                       description, created_date
+                FROM workflow_items
+                WHERE student_id = :sid
+                  AND stage = :stage
+                  AND (:escalation_id IS NULL OR id != :escalation_id)
+                ORDER BY created_date DESC NULLS FIRST, id
+            """),
+            {
+                "sid": STUDENT_ID,
+                "stage": Stage.academic_risk,
+                "escalation_id": None if escalation_row is None else escalation_row.id,
+            },
+        ).fetchall()
+    ]
+
     base = {
+        "workflow_items": workflow_items,
         "stage_summary": {
             "health": _academic_risk_health(urgent_count, needs_attention_count, watch_count),
             "watch_count": watch_count,

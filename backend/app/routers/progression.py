@@ -247,7 +247,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
             SELECT id, trigger, owner_name, owner_role, status, created_date
             FROM workflow_items
             WHERE student_id = :sid
-              AND stage = 'graduation_planning'
+              AND stage = 'progression'
               AND workflow_type = 'academic_plan_update'
             ORDER BY created_date DESC
             LIMIT 1

@@ -73,6 +73,35 @@ School-ai/
 └── Makefile
 ```
 
+## Journey stage vocabulary
+
+Every workflow item, priority-queue row and journey-health key carries a
+`stage`, and there is exactly one spelling per stage — the one the sidebar nav
+uses:
+
+| Stage | Page |
+| --- | --- |
+| `admissions` | Admissions |
+| `enrollment` | Enrollment |
+| `teaching_readiness` | Teaching Readiness |
+| `academic_risk` | Academic Risk |
+| `progression` | Progression |
+| `career_alumni` | Career & Alumni |
+
+Declared in `backend/app/stages.py` and `frontend/src/lib/stages.ts`, offered to
+agents as an `enum` in `orchestrate/tools/write_tools.yaml`, and enforced at the
+gateway: `POST /api/workflows` rejects any other value with a 422. Workflow item
+statuses work the same way — `completed` is the terminal one; `complete` is not
+a status.
+
+`backend/tests/test_stage_vocabulary.py` fails if a fixture, the tool spec, a
+query or a frontend writer drifts off the list. After changing it, re-import the
+write tools so Orchestrate agents see the new enum:
+
+```bash
+make import-write-tools
+```
+
 ## Virtual environment
 
 All Python dependencies are installed into `.venv/` at the repo root. Nothing is installed into the global interpreter. The venv is created automatically by `make setup`.

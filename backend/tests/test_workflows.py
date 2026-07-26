@@ -12,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.main import app
 from app.database import get_db
+from app.stages import STAGES
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
@@ -144,7 +145,7 @@ def test_create_workflow_item_returns_201(client):
 
 def test_create_workflow_item_response_has_id(client):
     payload = {
-        "stage": "registration",
+        "stage": "enrollment",
         "trigger": "Hold placed by finance office",
         "owner_name": "Khalid Al-Fadli",
         "owner_role": "registrar specialist",
@@ -161,7 +162,7 @@ def test_create_workflow_item_response_has_id(client):
 
 def test_created_item_appears_in_list(client):
     payload = {
-        "stage": "academic_progress",
+        "stage": "academic_risk",
         "trigger": "LMS risk flag raised",
         "owner_name": "Noura Al-Hamdan",
         "owner_role": "academic advisor",
@@ -185,7 +186,7 @@ def test_created_item_appears_in_list(client):
 
 def test_patch_workflow_updates_status(client):
     payload = {
-        "stage": "graduation_planning",
+        "stage": "progression",
         "trigger": "Credits deficit detected",
         "owner_name": "Ahmad Al-Shammari",
         "owner_role": "department chair",
@@ -203,7 +204,7 @@ def test_patch_workflow_updates_status(client):
 
 def test_patch_workflow_updates_due_date(client):
     payload = {
-        "stage": "career",
+        "stage": "career_alumni",
         "trigger": "Internship deadline approaching",
         "owner_name": "Lina Al-Enezi",
         "owner_role": "career advisor",
@@ -252,7 +253,7 @@ def test_create_workflow_without_student_id_is_allowed(client):
 def test_orchestrate_agent_callback_persists_item(client):
     """Simulates the Orchestrate agent calling POST /api/workflows as a write tool."""
     agent_payload = {
-        "stage": "registration",
+        "stage": "enrollment",
         "trigger": "Orchestrate agent: hold resolution recommended",
         "owner_name": "Khalid Al-Fadli",
         "owner_role": "registrar specialist",
@@ -274,7 +275,7 @@ def test_orchestrate_agent_callback_persists_item(client):
 
     # Verify all fields round-trip correctly
     match = next(item for item in list_response.json() if item["id"] == created_id)
-    assert match["stage"] == "registration"
+    assert match["stage"] == "enrollment"
     assert match["trigger"] == "Orchestrate agent: hold resolution recommended"
     assert match["owner_role"] == "registrar specialist"
     assert match["status"] == "pending"
@@ -290,7 +291,7 @@ def test_orchestrate_agent_callback_persists_item(client):
 
 def test_duplicate_create_workflow_item_returns_same_id(client):
     payload = {
-        "stage": "career",
+        "stage": "career_alumni",
         "trigger": "Mentor match recommendation for Omar Al-Mutairi",
         "owner_name": "Sara Al-Rashidi",
         "owner_role": "career advisor",
@@ -312,7 +313,7 @@ def test_duplicate_create_workflow_item_returns_same_id(client):
 
 def test_duplicate_create_workflow_item_does_not_create_second_row(client):
     payload = {
-        "stage": "career",
+        "stage": "career_alumni",
         "trigger": "Mentor match recommendation for Layla Al-Sabah",
         "owner_name": "Sara Al-Rashidi",
         "owner_role": "career advisor",
@@ -331,7 +332,7 @@ def test_duplicate_create_workflow_item_does_not_create_second_row(client):
 
 def test_workflow_items_differing_by_a_field_are_not_deduped(client):
     base_payload = {
-        "stage": "career",
+        "stage": "career_alumni",
         "trigger": "Mentor match recommendation for Yousef Al-Harbi",
         "owner_name": "Sara Al-Rashidi",
         "owner_role": "career advisor",
@@ -357,7 +358,7 @@ def test_duplicate_after_dedupe_window_expires_creates_new_item(client, monkeypa
     monkeypatch.setattr(workflows, "_DEDUPE_WINDOW_SECONDS", 0.05)
 
     payload = {
-        "stage": "career",
+        "stage": "career_alumni",
         "trigger": "Mentor match recommendation for Reem Al-Dosari",
         "owner_name": "Sara Al-Rashidi",
         "owner_role": "career advisor",
@@ -387,6 +388,97 @@ def test_all_seven_owner_roles_present_in_seed(client):
     }
     missing = required - seeded
     assert not missing, f"Seeded fixtures missing owner roles: {missing}"
+
+
+# ---------------------------------------------------------------------------
+# Issue #68 — the stage vocabulary is a contract, not a suggestion. A stage the
+# pages do not read is a row nobody ever sees, so the gateway refuses it at the
+# door instead of storing it.
+# ---------------------------------------------------------------------------
+
+def _valid_payload(**overrides) -> dict:
+    return {
+        "stage": "academic_risk",
+        "trigger": "Vocabulary guard probe",
+        "owner_name": "Noura Al-Hamdan",
+        "owner_role": "academic advisor",
+        "status": "pending",
+        "description": "Probe payload for stage/status validation.",
+        "student_id": "stu-003",
+        **overrides,
+    }
+
+
+@pytest.mark.parametrize("stage", sorted(STAGES))
+def test_create_accepts_every_canonical_stage(client, stage):
+    response = client.post(
+        "/api/workflows",
+        json=_valid_payload(stage=stage, trigger=f"Canonical stage probe — {stage}"),
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["stage"] == stage
+
+
+def test_create_stamps_the_item_with_todays_date(client, engine):
+    """
+    Every page that lists items orders them by created_date; a NULL there sorts
+    unpredictably and renders as a blank column.
+    """
+    from datetime import date
+    from sqlalchemy import text
+
+    item_id = client.post(
+        "/api/workflows", json=_valid_payload(trigger="Created-date probe")
+    ).json()["id"]
+
+    with engine.connect() as conn:
+        created = conn.execute(
+            text("SELECT created_date FROM workflow_items WHERE id = :id"),
+            {"id": item_id},
+        ).scalar_one()
+    assert created == date.today()
+
+
+@pytest.mark.parametrize("retired_stage", ["academic_progress", "registration", "career"])
+def test_create_rejects_a_retired_stage(client, retired_stage):
+    response = client.post(
+        "/api/workflows",
+        json=_valid_payload(
+            stage=retired_stage, trigger=f"Retired stage probe — {retired_stage}"
+        ),
+    )
+    assert response.status_code == 422, response.text
+    detail = response.text
+    assert retired_stage in detail
+    assert "academic_risk" in detail, "422 must name the vocabulary the agent may use"
+
+
+def test_create_rejects_an_unknown_status(client):
+    response = client.post(
+        "/api/workflows",
+        json=_valid_payload(status="complete", trigger="Unknown status probe"),
+    )
+    assert response.status_code == 422, response.text
+
+
+def test_patch_rejects_the_retired_complete_status(client):
+    item_id = client.post(
+        "/api/workflows", json=_valid_payload(trigger="Patch status probe — complete")
+    ).json()["id"]
+
+    response = client.patch(f"/api/workflows/{item_id}", json={"status": "complete"})
+    assert response.status_code == 422, response.text
+    assert "completed" in response.text
+
+
+def test_patch_accepts_the_terminal_completed_status(client):
+    item_id = client.post(
+        "/api/workflows", json=_valid_payload(trigger="Patch status probe — completed")
+    ).json()["id"]
+
+    response = client.patch(f"/api/workflows/{item_id}", json={"status": "completed"})
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "completed"
 
 
 # ---------------------------------------------------------------------------

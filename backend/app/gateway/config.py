@@ -2,6 +2,10 @@ import os
 
 from fastapi import HTTPException
 
+# Agent routing keys, NOT the journey stage vocabulary in app/stages.py. Several
+# stages are served by more than one agent (academic risk has three), so the two
+# sets overlap without being the same axis — `get_agent_id(Stage.career_alumni)`
+# is a mistake, `get_agent_id("career")` is the career agent.
 _STAGE_ENV_VARS: dict[str, str] = {
     "admissions": "AGENT_ID_ADMISSIONS",
     "enrollment": "AGENT_ID_ENROLLMENT",

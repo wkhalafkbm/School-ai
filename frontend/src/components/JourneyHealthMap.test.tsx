@@ -4,19 +4,21 @@ import JourneyHealthMap from "./JourneyHealthMap";
 import { STATUS_CLASSES } from "@/lib/status";
 
 const HEALTH = {
-  onboarding: "watch" as const,
-  registration: "on_track" as const,
-  academic_progress: "urgent" as const,
-  graduation_planning: "urgent" as const,
-  career: "needs_attention" as const,
+  admissions: "watch" as const,
+  enrollment: "on_track" as const,
+  academic_risk: "urgent" as const,
+  progression: "urgent" as const,
+  career_alumni: "needs_attention" as const,
 };
 
+// The labels the nav uses for the same stages — the map and the sidebar name a
+// stage the same way or the Overview reads as a different product (#68).
 const STAGE_LABELS = {
-  onboarding: "Onboarding",
-  registration: "Registration",
-  academic_progress: "Academic Progress",
-  graduation_planning: "Graduation Planning",
-  career: "Career",
+  admissions: "Admissions",
+  enrollment: "Enrollment",
+  academic_risk: "Academic Risk",
+  progression: "Progression",
+  career_alumni: "Career & Alumni",
 };
 
 describe("JourneyHealthMap", () => {

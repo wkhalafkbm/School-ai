@@ -5,7 +5,7 @@ import StatusBadge from "@/components/StatusBadge";
 import MarkdownText from "@/components/MarkdownText";
 import StreamedField from "@/components/StreamedField";
 import { useStreamedProfile } from "@/lib/useStreamedProfile";
-import { StatusCode } from "@/lib/status";
+import { StatusCode, WORKFLOW_STATUS_MAP, WorkflowStatus } from "@/lib/status";
 import AcademicRiskActions from "./AcademicRiskActions";
 import GpaBySemesterPanel, { type GpaTrend } from "./GpaBySemesterPanel";
 
@@ -41,6 +41,18 @@ interface SponsorEscalation {
   created_date: string;
 }
 
+/** An item this stage owns — including whatever the Approve button just wrote (#68). */
+interface StageWorkflowItem {
+  id: string;
+  stage: string;
+  trigger: string;
+  owner_name: string | null;
+  owner_role: string;
+  status: WorkflowStatus;
+  description: string | null;
+  created_date: string | null;
+}
+
 interface RationaleAssessment {
   rationale: string;
 }
@@ -65,6 +77,7 @@ interface AcademicRiskProfile {
   cohort_slo_pattern: SloPatternItem[];
   intervention_plan: InterventionPlan;
   sponsor_escalation: SponsorEscalation | null;
+  workflow_items: StageWorkflowItem[];
   engagement_assessment: RationaleAssessment;
   support_assessment: RationaleAssessment;
 }
@@ -127,8 +140,12 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export default function AcademicRiskPage() {
+  // Bumping the reload counter changes the stream URL, which is what the
+  // profile hook re-subscribes on — how the page picks up an item the Approve
+  // button just wrote (#68).
+  const [reload, setReload] = useState(0);
   const { data, done } = useStreamedProfile<AcademicRiskProfile>(
-    `${API}/api/academic-risk/profile/stream`
+    `${API}/api/academic-risk/profile/stream?reload=${reload}`
   );
   const [lens, setLens] = useState<RiskLens>("snapshot");
 
@@ -145,6 +162,7 @@ export default function AcademicRiskPage() {
     sponsor_escalation,
     engagement_assessment,
     support_assessment,
+    workflow_items,
   } = data;
 
   return (
@@ -294,6 +312,30 @@ export default function AcademicRiskPage() {
         </ul>
       </section>
 
+      {/* Everything open on this student at this stage, including what this
+          page's own Approve button just created (#68). */}
+      {workflow_items?.length > 0 && (
+        <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="mb-3 text-base font-semibold text-gray-900">
+            Open Workflow Items
+          </h2>
+          <ul className="divide-y">
+            {workflow_items.map((item) => (
+              <li key={item.id} className="flex items-center gap-4 py-2 text-sm">
+                <span className="flex-1 text-gray-900">{item.trigger}</span>
+                <span className="text-xs text-gray-500">
+                  {item.owner_name ?? "Unassigned"} ({item.owner_role})
+                </span>
+                <StatusBadge code={WORKFLOW_STATUS_MAP[item.status]} />
+                <span className="w-24 text-right text-xs text-gray-500">
+                  {item.created_date ?? "—"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Sponsor escalation (seeded, auto-triggered) */}
       {sponsor_escalation && (
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
@@ -329,7 +371,10 @@ export default function AcademicRiskPage() {
 
       {/* Action */}
       <div className="flex justify-end">
-        <AcademicRiskActions studentId={student.id} />
+        <AcademicRiskActions
+          studentId={student.id}
+          onCreated={() => setReload((n) => n + 1)}
+        />
       </div>
     </main>
   );

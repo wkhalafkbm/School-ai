@@ -136,9 +136,10 @@ describe("Enrollment → Workflow Activity integration", () => {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
 
-    // All items are enrollment stage — scope to table rows to exclude filter dropdown
+    // All items are enrollment stage — scope to table rows to exclude filter
+    // dropdown, which lists the raw stage id rather than its label
     const table = screen.getByRole("table");
-    const stageLabels = within(table).getAllByText("enrollment");
+    const stageLabels = within(table).getAllByText("Enrollment");
     expect(stageLabels).toHaveLength(3);
   });
 });

@@ -258,7 +258,7 @@ def test_agent_simulation_update_workflow_item(client):
 
     # Create an item to patch
     create_payload = {
-        "stage": "career",
+        "stage": "career_alumni",
         "trigger": "Write-tools patch integration test",
         "owner_name": "Lina Al-Enezi",
         "owner_role": "career advisor",

@@ -3,9 +3,9 @@ import { render, screen } from "@testing-library/react";
 import PriorityQueue from "./PriorityQueue";
 
 const ITEMS = [
-  { student_id: "s-001", student_name: "Alice Smith", stage: "academic_progress", status: "urgent" as const, reason: "LMS risk flag raised" },
-  { student_id: "s-002", student_name: "Bob Jones", stage: "graduation_planning", status: "needs_attention" as const, reason: "Missing graduation audit" },
-  { student_id: "s-003", student_name: "Carol Wu", stage: "onboarding", status: "watch" as const, reason: "Incomplete onboarding tasks" },
+  { student_id: "s-001", student_name: "Alice Smith", stage: "academic_risk", status: "urgent" as const, reason: "LMS risk flag raised" },
+  { student_id: "s-002", student_name: "Bob Jones", stage: "progression", status: "needs_attention" as const, reason: "Missing graduation audit" },
+  { student_id: "s-003", student_name: "Carol Wu", stage: "admissions", status: "watch" as const, reason: "Incomplete onboarding tasks" },
 ];
 
 describe("PriorityQueue", () => {
@@ -45,9 +45,9 @@ describe("PriorityQueue", () => {
 
   it("displays the stage label in each row", () => {
     render(<PriorityQueue items={ITEMS} />);
-    expect(screen.getByText("Academic Progress")).toBeTruthy();
-    expect(screen.getByText("Graduation Planning")).toBeTruthy();
-    expect(screen.getByText("Onboarding")).toBeTruthy();
+    expect(screen.getByText("Academic Risk")).toBeTruthy();
+    expect(screen.getByText("Progression")).toBeTruthy();
+    expect(screen.getByText("Admissions")).toBeTruthy();
   });
 
   // Issue #66 added a GPA-trend source to the queue. Its rows are ordinary
@@ -57,14 +57,14 @@ describe("PriorityQueue", () => {
     {
       student_id: "stu-003",
       student_name: "Fahad Al-Ajmi",
-      stage: "academic_progress",
+      stage: "academic_risk",
       status: "urgent" as const,
       reason: "GPA declined 1.90 → 1.40 in 2024-Fall (sharp drop)",
     },
     {
       student_id: "stu-013",
       student_name: "Noura Al-Sabah",
-      stage: "academic_progress",
+      stage: "academic_risk",
       status: "watch" as const,
       reason:
         "GPA declined 2.90 → 2.65 → 2.40 across 2023-Fall–2024-Fall, a total of 0.50 over two terms (sustained decline)",
