@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app import models
+from app.gpa_trends import build_gpa_history
 from app.routers.alumni import get_matched_mentor
 
 router = APIRouter(prefix="/api/students", tags=["students"])
@@ -413,6 +414,22 @@ def get_transcript(student_id: str, db: Session = Depends(get_db)):
             }
             for e in enrollments
         ],
+    }
+
+
+# --- get_gpa_history ---
+
+@router.get("/{student_id}/gpa-history", summary="Get GPA history", description="Returns the student's per-term GPA history in chronological order (term, term GPA, cumulative GPA), plus the trend verdict computed by the university's deterministic GPA trend rule: trend_status ('urgent', 'needs_attention', 'watch', or null when no decline is detected), trend_reason describing the term-over-term change, and rules_fired. The verdict is decided here, not by the caller: quote trend_status and trend_reason as returned and do not recompute or infer a trend from the series yourself. The terms list is empty for a student with no recorded terms.")
+def get_gpa_history(student_id: str, db: Session = Depends(get_db)):
+    student = _require_student(student_id, db)
+    history = build_gpa_history(db, student_id)
+    return {
+        "student_id": student_id,
+        "student_name": student.name,
+        "terms": history["series"],
+        "trend_status": history["status"],
+        "trend_reason": history["reason"],
+        "rules_fired": history["rules_fired"],
     }
 
 

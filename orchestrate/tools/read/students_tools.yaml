@@ -384,6 +384,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/students/{student_id}/gpa-history:
+    get:
+      tags:
+      - students
+      summary: Get GPA history
+      description: 'Returns the student''s per-term GPA history in chronological order
+        (term, term GPA, cumulative GPA), plus the trend verdict computed by the university''s
+        deterministic GPA trend rule: trend_status (''urgent'', ''needs_attention'',
+        ''watch'', or null when no decline is detected), trend_reason describing the
+        term-over-term change, and rules_fired. The verdict is decided here, not by
+        the caller: quote trend_status and trend_reason as returned and do not recompute
+        or infer a trend from the series yourself. The terms list is empty for a student
+        with no recorded terms.'
+      operationId: get_gpa_history_api_students__student_id__gpa_history_get
+      parameters:
+      - name: student_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Student Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/students/{student_id}/skills:
     get:
       tags:

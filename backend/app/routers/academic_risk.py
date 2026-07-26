@@ -225,11 +225,24 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     )
 
     # --- engagement & early risk detection rationale ---
+    # The scripted rationale has to tell the same story the live agent now tells
+    # from get_gpa_history (#67), so the trend the page displays is never absent
+    # from the narrative beside it.
+    gpa_trend = build_gpa_trend(db, STUDENT_ID)
+    trend_sentence = ""
+    if gpa_trend["status"] is not None:
+        latest_term = gpa_trend["series"][-1]
+        trend_sentence = (
+            f" The GPA history compounds the risk: {gpa_trend['reason']}, leaving "
+            f"the cumulative GPA at {latest_term['cumulative_gpa']:.2f}."
+        )
+
     engagement_rationale = (
         f"Fahad averages {avg_login:.1f} LMS logins and a "
         f"{avg_submission * 100:.0f}% assignment submission rate over the last 30 days, "
-        f"placing attrition risk at '{dropout_risk}'. Early outreach is recommended before "
-        "engagement drops further."
+        f"placing attrition risk at '{dropout_risk}'."
+        f"{trend_sentence}"
+        " Early outreach is recommended before engagement drops further."
     )
 
     # --- student support & case management rationale ---
@@ -260,7 +273,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
             "academic_failure_risk": failure_risk,
             "attrition_risk": dropout_risk,
         },
-        "gpa_trend": build_gpa_trend(db, STUDENT_ID),
+        "gpa_trend": gpa_trend,
         "cohort_slo_pattern": cohort_slo_pattern,
         "intervention_plan": intervention_plan,
         "sponsor_escalation": sponsor_escalation,

@@ -639,6 +639,21 @@ def test_scripted_mode_never_contacts_orchestrate_for_academic_risk(client, monk
     assert "GPA of" in data["support_assessment"]["rationale"]
 
 
+def test_scripted_engagement_rationale_mentions_the_gpa_trend(client, monkeypatch):
+    """Issue #67 — the page's scripted rationale is what the demo shows when the
+    live agent is off or falls back, so it must reference the same decline the
+    Trend toggle displays rather than engagement signals alone."""
+    monkeypatch.setenv("AI_MODE", "scripted")
+    data = client.get("/api/academic-risk/profile").json()
+
+    rationale = data["engagement_assessment"]["rationale"]
+    trend = data["gpa_trend"]
+    latest = trend["series"][-1]
+
+    assert f"{latest['term_gpa']:.2f}" in rationale
+    assert latest["term"] in rationale
+
+
 # ---------------------------------------------------------------------------
 # Issue #42 — GET /api/academic-risk/profile/stream (SSE)
 # ---------------------------------------------------------------------------
