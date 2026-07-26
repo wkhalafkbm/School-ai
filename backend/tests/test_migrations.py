@@ -72,6 +72,31 @@ def test_upgrade_applies_onto_an_already_migrated_database(alembic_cfg, engine):
     )
 
 
+def test_alembic_ini_carries_no_second_database_default():
+    """
+    A URL here is a second answer to "which database?" that silently beats
+    .env — how `make migrate` came to target port 5432 on a machine whose
+    Postgres runs on 5433. env.py resolves it instead.
+    """
+    from configparser import ConfigParser
+
+    parser = ConfigParser()
+    parser.read("/Users/waleedkhalaf/workspace/KBM/School-ai/backend/alembic.ini")
+    assert not parser.get("alembic", "sqlalchemy.url", fallback="").strip(), (
+        "alembic.ini must not hardcode a database URL"
+    )
+
+
+def test_a_caller_supplied_url_is_not_overridden(alembic_cfg, engine):
+    """
+    The suite migrates a throwaway test database by passing its URL in. If
+    env.py resolved .env over that, running the tests would downgrade the
+    developer's own demo database to base.
+    """
+    command.upgrade(alembic_cfg, "head")
+    assert alembic_cfg.get_main_option("sqlalchemy.url") == TEST_DATABASE_URL
+
+
 def test_upgrade_rewrites_retired_stage_and_status_values(alembic_cfg, engine):
     """
     Issue #68 — rows written before the vocabulary was unified still carry the
