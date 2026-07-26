@@ -156,4 +156,46 @@ describe("WorkflowList", () => {
     expect(screen.getByText("Sara Al-Rashidi")).toBeInTheDocument();
     expect(screen.getByText("Khalid Al-Fadli")).toBeInTheDocument();
   });
+
+  // -------------------------------------------------------------------------
+  // Cycle 8 — an unclaimed item (null owner) reads as unassigned, not blank
+  // -------------------------------------------------------------------------
+
+  it("renders an unassigned owner as visible text when owner_name is null", () => {
+    render(
+      <WorkflowList
+        items={[{ ...ITEMS[0], id: "wfl-unowned", owner_name: null }]}
+      />
+    );
+    expect(within(screen.getByRole("table")).getByText("Unassigned")).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Cycle 9 — machine triggers display as human-readable text
+  // -------------------------------------------------------------------------
+
+  it("relabels a gpa_trend trigger as human-readable text naming the term", () => {
+    render(
+      <WorkflowList
+        items={[{ ...ITEMS[0], id: "wfl-trend", trigger: "gpa_trend:2024-Fall" }]}
+      />
+    );
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("GPA trend detected — 2024-Fall")).toBeInTheDocument();
+    expect(within(table).queryByText("gpa_trend:2024-Fall")).not.toBeInTheDocument();
+  });
+
+  it("passes unrecognised triggers through unchanged", () => {
+    render(
+      <WorkflowList
+        items={[
+          { ...ITEMS[0], id: "wfl-prose", trigger: "Financial hold detected" },
+          { ...ITEMS[1], id: "wfl-machine", trigger: "some_future_rule:2025-Spring" },
+        ]}
+      />
+    );
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Financial hold detected")).toBeInTheDocument();
+    expect(within(table).getByText("some_future_rule:2025-Spring")).toBeInTheDocument();
+  });
 });
