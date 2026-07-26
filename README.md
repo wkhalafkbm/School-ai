@@ -96,10 +96,14 @@ a status.
 
 `backend/tests/test_stage_vocabulary.py` fails if a fixture, the tool spec, a
 query or a frontend writer drifts off the list. After changing it, re-import the
-write tools so Orchestrate agents see the new enum:
+write tools so Orchestrate agents see the new enum, then check what Orchestrate
+actually serves — agents read the copy registered there, not the file in this
+repo:
 
 ```bash
+orchestrate env activate school-ai --api-key "$WXO_API_KEY"   # tokens expire
 make import-write-tools
+make verify-write-tools    # fails if the deployed schema has drifted
 ```
 
 ## Virtual environment
