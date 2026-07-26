@@ -876,3 +876,143 @@ def test_profile_resolves_the_three_gateway_calls_concurrently(client, monkeypat
         f"Expected concurrent gateway calls (~{CALL_DELAY}s), took {elapsed:.2f}s — "
         "looks sequential (~3x call duration)"
     )
+
+
+# ---------------------------------------------------------------------------
+# Issue #65 — gpa_trend section on the profile payload
+# ---------------------------------------------------------------------------
+
+# Cycle 1 — tracer bullet: the payload carries a gpa_trend section at all.
+
+def test_profile_has_gpa_trend_section(client):
+    data = client.get("/api/academic-risk/profile").json()
+    assert "gpa_trend" in data
+
+
+# Cycle 2 — the series is the student's whole history, chronologically ordered.
+
+def test_gpa_trend_series_is_chronological_with_term_and_cumulative_gpa(client):
+    series = client.get("/api/academic-risk/profile").json()["gpa_trend"]["series"]
+    assert series == [
+        {"term": "2023-Fall", "term_gpa": 2.4, "cumulative_gpa": 2.4},
+        {"term": "2024-Spring", "term_gpa": 1.9, "cumulative_gpa": 2.15},
+        {"term": "2024-Fall", "term_gpa": 1.4, "cumulative_gpa": 1.9},
+    ]
+
+
+# Cycle 3 — the computed verdict: status, reason, and the rules that fired.
+
+def test_gpa_trend_status_is_urgent_for_the_profiled_student(client):
+    trend = client.get("/api/academic-risk/profile").json()["gpa_trend"]
+    assert trend["status"] == "urgent"
+
+
+def test_gpa_trend_reason_names_the_rule_and_the_numbers(client):
+    trend = client.get("/api/academic-risk/profile").json()["gpa_trend"]
+    assert "sharp drop" in trend["reason"]
+    assert "1.90" in trend["reason"] and "1.40" in trend["reason"]
+
+
+def test_gpa_trend_reports_which_rules_fired(client):
+    trend = client.get("/api/academic-risk/profile").json()["gpa_trend"]
+    assert trend["rules_fired"] == ["sharp_drop", "sustained_decline"]
+
+
+# Cycle 4 — the workflow item opened for this trend, if one exists.
+
+def test_gpa_trend_carries_the_linked_workflow_item(client):
+    item = client.get("/api/academic-risk/profile").json()["gpa_trend"]["workflow_item"]
+    assert item is not None
+    assert item["id"] == "wft-stu-003-2024-Fall"
+    assert item["status"] == "pending"
+    assert item["created_date"]
+
+
+# Cycle 5 — risk status and intervention status are two different facts:
+# completing the item must not clear the trend.
+
+def test_completing_the_workflow_item_does_not_clear_the_trend_status(client, engine):
+    from sqlalchemy import text as sql
+
+    def set_status(status: str) -> None:
+        with engine.connect() as conn:
+            conn.execute(
+                sql("UPDATE workflow_items SET status = :st WHERE id = :id"),
+                {"st": status, "id": "wft-stu-003-2024-Fall"},
+            )
+            conn.commit()
+
+    set_status("completed")
+    try:
+        trend = client.get("/api/academic-risk/profile").json()["gpa_trend"]
+        assert trend["status"] == "urgent"
+        assert trend["workflow_item"]["status"] == "completed"
+    finally:
+        set_status("pending")
+
+
+# Cycle 6 — a student whose rule never fires: a null status and a reason that
+# says so, never a blank section.
+
+def test_gpa_trend_status_is_null_when_no_rule_fires(client, monkeypatch):
+    import app.routers.academic_risk as academic_risk_router
+
+    # stu-002 has a single term of history — too little to compare.
+    monkeypatch.setattr(academic_risk_router, "STUDENT_ID", "stu-002")
+
+    trend = client.get("/api/academic-risk/profile").json()["gpa_trend"]
+    assert trend["status"] is None
+    assert trend["rules_fired"] == []
+    assert trend["workflow_item"] is None
+    assert len(trend["series"]) == 1
+    assert trend["reason"]
+
+
+def test_gpa_trend_reason_explains_a_steady_series_rather_than_missing_history(
+    client, monkeypatch
+):
+    import app.routers.academic_risk as academic_risk_router
+
+    # stu-005 has five terms hovering around 3.5 — enough history, no decline.
+    monkeypatch.setattr(academic_risk_router, "STUDENT_ID", "stu-005")
+
+    trend = client.get("/api/academic-risk/profile").json()["gpa_trend"]
+    assert trend["status"] is None
+    assert "No declining trend" in trend["reason"]
+
+
+# Cycle 7 — a term whose GPA is not recorded yet withholds the verdict, and the
+# reason must say that rather than blaming missing history.
+
+def test_gpa_trend_reason_names_the_unrecorded_term_when_history_is_incomplete(
+    client, engine, monkeypatch
+):
+    from sqlalchemy import text as sql
+
+    import app.routers.academic_risk as academic_risk_router
+
+    monkeypatch.setattr(academic_risk_router, "STUDENT_ID", "stu-002")
+
+    with engine.connect() as conn:
+        conn.execute(
+            sql("""
+                INSERT INTO student_term_gpa
+                    (id, student_id, term, term_index, term_gpa, cumulative_gpa,
+                     data_source)
+                VALUES ('stg-test-incomplete', 'stu-002', '2025-Spring', 2,
+                        NULL, NULL, 'SIS')
+            """)
+        )
+        conn.commit()
+    try:
+        trend = client.get("/api/academic-risk/profile").json()["gpa_trend"]
+        assert trend["status"] is None
+        assert len(trend["series"]) == 2
+        assert "2025-Spring" in trend["reason"]
+        assert "Fewer than 2 terms" not in trend["reason"]
+    finally:
+        with engine.connect() as conn:
+            conn.execute(
+                sql("DELETE FROM student_term_gpa WHERE id = 'stg-test-incomplete'")
+            )
+            conn.commit()

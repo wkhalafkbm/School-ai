@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
 import MarkdownText from "@/components/MarkdownText";
 import StreamedField from "@/components/StreamedField";
 import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import { StatusCode } from "@/lib/status";
 import AcademicRiskActions from "./AcademicRiskActions";
+import GpaBySemesterPanel, { type GpaTrend } from "./GpaBySemesterPanel";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -59,6 +61,7 @@ interface AcademicRiskProfile {
     academic_failure_risk: StatusCode;
     attrition_risk: StatusCode;
   };
+  gpa_trend: GpaTrend;
   cohort_slo_pattern: SloPatternItem[];
   intervention_plan: InterventionPlan;
   sponsor_escalation: SponsorEscalation | null;
@@ -78,6 +81,42 @@ const PRIORITY_CLASSES: Record<string, string> = {
   low: "bg-blue-100 text-blue-700",
 };
 
+/** Which risk lens the student card shows. The rest of the page is unaffected. */
+type RiskLens = "snapshot" | "trend";
+
+const LENSES: { value: RiskLens; label: string }[] = [
+  { value: "snapshot", label: "Snapshot" },
+  { value: "trend", label: "Trend" },
+];
+
+function LensToggle({
+  lens,
+  onChange,
+}: {
+  lens: RiskLens;
+  onChange: (lens: RiskLens) => void;
+}) {
+  return (
+    <div className="inline-flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
+      {LENSES.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          aria-pressed={lens === option.value}
+          onClick={() => onChange(option.value)}
+          className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
+            lens === option.value
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex justify-between py-1 text-sm">
@@ -91,6 +130,7 @@ export default function AcademicRiskPage() {
   const { data, done } = useStreamedProfile<AcademicRiskProfile>(
     `${API}/api/academic-risk/profile/stream`
   );
+  const [lens, setLens] = useState<RiskLens>("snapshot");
 
   if (!data) {
     return <main className="p-6 text-sm text-gray-500">Loading academic risk profile…</main>;
@@ -99,6 +139,7 @@ export default function AcademicRiskPage() {
   const {
     stage_summary,
     student,
+    gpa_trend,
     cohort_slo_pattern,
     intervention_plan,
     sponsor_escalation,
@@ -125,6 +166,8 @@ export default function AcademicRiskPage() {
         </div>
       </div>
 
+      <LensToggle lens={lens} onChange={setLens} />
+
       {/* Student card with dual risk indicators */}
       <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
         <h2 className="mb-3 text-base font-semibold text-gray-900">
@@ -136,18 +179,38 @@ export default function AcademicRiskPage() {
             <Row label="Year Level" value={student.year_level} />
             <Row label="GPA" value={student.gpa.toFixed(2)} />
           </div>
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Academic Failure Risk</span>
-              <StatusBadge code={student.academic_failure_risk} />
+          {lens === "snapshot" ? (
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Academic Failure Risk</span>
+                <StatusBadge code={student.academic_failure_risk} />
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Attrition Risk</span>
+                <StatusBadge code={student.attrition_risk} />
+              </div>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-500">Attrition Risk</span>
-              <StatusBadge code={student.attrition_risk} />
+          ) : (
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">GPA Trend</span>
+                {gpa_trend.status ? (
+                  <StatusBadge code={gpa_trend.status} />
+                ) : (
+                  <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                    No Trend Detected
+                  </span>
+                )}
+              </div>
+              <p className="text-xs leading-relaxed text-gray-500">
+                {gpa_trend.reason}
+              </p>
             </div>
-          </div>
+          )}
         </div>
       </div>
+
+      {lens === "trend" && <GpaBySemesterPanel trend={gpa_trend} />}
 
       {/* Cohort SLO pattern panel */}
       <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">

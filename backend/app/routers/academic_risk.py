@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.evidence import build_evidence
-from app.gpa_trends import evaluate_gpa_trends
+from app.gpa_trends import build_gpa_trend, evaluate_gpa_trends
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
 from app.status import StatusCode
@@ -260,6 +260,7 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
             "academic_failure_risk": failure_risk,
             "attrition_risk": dropout_risk,
         },
+        "gpa_trend": build_gpa_trend(db, STUDENT_ID),
         "cohort_slo_pattern": cohort_slo_pattern,
         "intervention_plan": intervention_plan,
         "sponsor_escalation": sponsor_escalation,
