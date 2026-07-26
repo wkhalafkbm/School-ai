@@ -36,6 +36,7 @@ INSERT_ORDER = [
     "slo_assessments",
     "cohort_slo_history",
     "student_slo_results",
+    "student_term_gpa",
 ]
 
 # FK checks: (child_table, fk_column, parent_table).
@@ -76,6 +77,7 @@ FK_CHECKS = [
     ("student_slo_results",    "student_id",              "students"),
     ("student_slo_results",    "slo_id",                  "slos"),
     ("student_slo_results",    "course_id",               "courses"),
+    ("student_term_gpa",       "student_id",              "students"),
 ]
 
 

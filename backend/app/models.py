@@ -101,6 +101,7 @@ class Student(Base):
     career_pathways = relationship("CareerPathway", back_populates="student")
     workflow_items = relationship("WorkflowItem", back_populates="student")
     student_slo_results = relationship("StudentSLOResult", back_populates="student")
+    term_gpas = relationship("StudentTermGPA", back_populates="student")
 
 
 class Enrollment(Base):
@@ -430,3 +431,18 @@ class StudentSLOResult(Base):
 
     student = relationship("Student", back_populates="student_slo_results")
     slo = relationship("SLO", back_populates="student_results")
+
+
+class StudentTermGPA(Base):
+    """One row per student per term — the academic series GPA trend detection runs on."""
+    __tablename__ = "student_term_gpa"
+    id = Column(String, primary_key=True)
+    student_id = Column(String, ForeignKey("students.id"), nullable=False)
+    term = Column(String, nullable=False)
+    # Term strings do not sort correctly as text; this is the chronological order.
+    term_index = Column(Integer, nullable=False)
+    term_gpa = Column(Float)
+    cumulative_gpa = Column(Float)
+    data_source = Column(SAEnum(DataSource), nullable=False)
+
+    student = relationship("Student", back_populates="term_gpas")

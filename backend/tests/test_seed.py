@@ -26,7 +26,7 @@ ALL_TABLES = [
     "financial_aid_records", "administrative_holds", "graduation_requirements",
     "student_course_progress", "career_pathways", "alumni_mentors",
     "workflow_items", "slos", "slo_assessments", "cohort_slo_history",
-    "student_slo_results",
+    "student_slo_results", "student_term_gpa",
 ]
 
 
@@ -152,6 +152,20 @@ def test_seed_rejects_broken_foreign_key(engine, tmp_path):
     (tmp_path / "students.json").write_text(json.dumps(students))
 
     with pytest.raises(SeedValidationError, match="program_id"):
+        seed(TEST_DATABASE_URL, tmp_path)
+
+
+def test_seed_rejects_term_gpa_row_for_unknown_student(engine, tmp_path):
+    from app.seed import seed, SeedValidationError
+
+    for f in FIXTURES_DIR.glob("*.json"):
+        (tmp_path / f.name).write_text(f.read_text())
+
+    rows = json.loads((tmp_path / "student_term_gpa.json").read_text())
+    rows[0]["student_id"] = "stu_DOES_NOT_EXIST"
+    (tmp_path / "student_term_gpa.json").write_text(json.dumps(rows))
+
+    with pytest.raises(SeedValidationError, match="student_id"):
         seed(TEST_DATABASE_URL, tmp_path)
 
 

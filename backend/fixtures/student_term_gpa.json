@@ -1,0 +1,2477 @@
+[
+  {
+    "id": "stg-001",
+    "student_id": "stu-002",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-002",
+    "student_id": "stu-003",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.4,
+    "cumulative_gpa": 2.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-003",
+    "student_id": "stu-003",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 1.9,
+    "cumulative_gpa": 2.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-004",
+    "student_id": "stu-003",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 1.4,
+    "cumulative_gpa": 1.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-005",
+    "student_id": "stu-004",
+    "term": "2022-Fall",
+    "term_index": 1,
+    "term_gpa": 2.6,
+    "cumulative_gpa": 2.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-006",
+    "student_id": "stu-004",
+    "term": "2023-Spring",
+    "term_index": 2,
+    "term_gpa": 2.4,
+    "cumulative_gpa": 2.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-007",
+    "student_id": "stu-004",
+    "term": "2023-Fall",
+    "term_index": 3,
+    "term_gpa": 1.9,
+    "cumulative_gpa": 2.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-008",
+    "student_id": "stu-004",
+    "term": "2024-Spring",
+    "term_index": 4,
+    "term_gpa": 2.4,
+    "cumulative_gpa": 2.33,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-009",
+    "student_id": "stu-004",
+    "term": "2024-Fall",
+    "term_index": 5,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-010",
+    "student_id": "stu-005",
+    "term": "2022-Fall",
+    "term_index": 1,
+    "term_gpa": 3.5,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-011",
+    "student_id": "stu-005",
+    "term": "2023-Spring",
+    "term_index": 2,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.48,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-012",
+    "student_id": "stu-005",
+    "term": "2023-Fall",
+    "term_index": 3,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-013",
+    "student_id": "stu-005",
+    "term": "2024-Spring",
+    "term_index": 4,
+    "term_gpa": 3.5,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-014",
+    "student_id": "stu-005",
+    "term": "2024-Fall",
+    "term_index": 5,
+    "term_gpa": 3.5,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-015",
+    "student_id": "stu-006",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-016",
+    "student_id": "stu-006",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.4,
+    "cumulative_gpa": 3.28,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-017",
+    "student_id": "stu-006",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-018",
+    "student_id": "stu-007",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.85,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-019",
+    "student_id": "stu-007",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.78,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-020",
+    "student_id": "stu-007",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.8,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-021",
+    "student_id": "stu-008",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-022",
+    "student_id": "stu-008",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.75,
+    "cumulative_gpa": 3.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-023",
+    "student_id": "stu-008",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.7,
+    "cumulative_gpa": 3.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-024",
+    "student_id": "stu-009",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-025",
+    "student_id": "stu-009",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.8,
+    "cumulative_gpa": 2.98,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-026",
+    "student_id": "stu-009",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-027",
+    "student_id": "stu-010",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.75,
+    "cumulative_gpa": 2.75,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-028",
+    "student_id": "stu-010",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 2.88,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-029",
+    "student_id": "stu-010",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-030",
+    "student_id": "stu-011",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-031",
+    "student_id": "stu-012",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-032",
+    "student_id": "stu-012",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-033",
+    "student_id": "stu-012",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.6,
+    "cumulative_gpa": 3.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-034",
+    "student_id": "stu-013",
+    "term": "2022-Fall",
+    "term_index": 1,
+    "term_gpa": 2.5,
+    "cumulative_gpa": 2.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-035",
+    "student_id": "stu-013",
+    "term": "2023-Spring",
+    "term_index": 2,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.53,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-036",
+    "student_id": "stu-013",
+    "term": "2023-Fall",
+    "term_index": 3,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 2.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-037",
+    "student_id": "stu-013",
+    "term": "2024-Spring",
+    "term_index": 4,
+    "term_gpa": 2.65,
+    "cumulative_gpa": 2.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-038",
+    "student_id": "stu-013",
+    "term": "2024-Fall",
+    "term_index": 5,
+    "term_gpa": 2.4,
+    "cumulative_gpa": 2.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-039",
+    "student_id": "stu-014",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-040",
+    "student_id": "stu-014",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.38,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-041",
+    "student_id": "stu-014",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-042",
+    "student_id": "stu-015",
+    "term": "2022-Fall",
+    "term_index": 1,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-043",
+    "student_id": "stu-015",
+    "term": "2023-Spring",
+    "term_index": 2,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-044",
+    "student_id": "stu-015",
+    "term": "2023-Fall",
+    "term_index": 3,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-045",
+    "student_id": "stu-015",
+    "term": "2024-Spring",
+    "term_index": 4,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 2.78,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-046",
+    "student_id": "stu-015",
+    "term": "2024-Fall",
+    "term_index": 5,
+    "term_gpa": 2.4,
+    "cumulative_gpa": 2.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-047",
+    "student_id": "stu-016",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-048",
+    "student_id": "stu-017",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-049",
+    "student_id": "stu-017",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 3.08,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-050",
+    "student_id": "stu-017",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-051",
+    "student_id": "stu-018",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.45,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-052",
+    "student_id": "stu-018",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-053",
+    "student_id": "stu-018",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.5,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-054",
+    "student_id": "stu-019",
+    "term": "2022-Fall",
+    "term_index": 1,
+    "term_gpa": 2.3,
+    "cumulative_gpa": 2.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-055",
+    "student_id": "stu-019",
+    "term": "2023-Spring",
+    "term_index": 2,
+    "term_gpa": 2.35,
+    "cumulative_gpa": 2.33,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-056",
+    "student_id": "stu-019",
+    "term": "2023-Fall",
+    "term_index": 3,
+    "term_gpa": 2.25,
+    "cumulative_gpa": 2.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-057",
+    "student_id": "stu-019",
+    "term": "2024-Spring",
+    "term_index": 4,
+    "term_gpa": 2.3,
+    "cumulative_gpa": 2.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-058",
+    "student_id": "stu-019",
+    "term": "2024-Fall",
+    "term_index": 5,
+    "term_gpa": 2.3,
+    "cumulative_gpa": 2.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-059",
+    "student_id": "stu-020",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.95,
+    "cumulative_gpa": 3.95,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-060",
+    "student_id": "stu-020",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.6,
+    "cumulative_gpa": 3.78,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-061",
+    "student_id": "stu-020",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.85,
+    "cumulative_gpa": 3.8,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-062",
+    "student_id": "stu-021",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.35,
+    "cumulative_gpa": 2.35,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-063",
+    "student_id": "stu-021",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.6,
+    "cumulative_gpa": 2.48,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-064",
+    "student_id": "stu-021",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-065",
+    "student_id": "stu-022",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-066",
+    "student_id": "stu-023",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-067",
+    "student_id": "stu-023",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-068",
+    "student_id": "stu-023",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-069",
+    "student_id": "stu-024",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-070",
+    "student_id": "stu-024",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.8,
+    "cumulative_gpa": 2.98,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-071",
+    "student_id": "stu-024",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-072",
+    "student_id": "stu-025",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-073",
+    "student_id": "stu-025",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.4,
+    "cumulative_gpa": 3.28,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-074",
+    "student_id": "stu-025",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-075",
+    "student_id": "stu-026",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-076",
+    "student_id": "stu-026",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 3.08,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-077",
+    "student_id": "stu-026",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-078",
+    "student_id": "stu-027",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.35,
+    "cumulative_gpa": 2.35,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-079",
+    "student_id": "stu-027",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.45,
+    "cumulative_gpa": 2.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-080",
+    "student_id": "stu-027",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.4,
+    "cumulative_gpa": 2.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-081",
+    "student_id": "stu-028",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.75,
+    "cumulative_gpa": 3.75,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-082",
+    "student_id": "stu-028",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.4,
+    "cumulative_gpa": 3.58,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-083",
+    "student_id": "stu-028",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-084",
+    "student_id": "stu-029",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.65,
+    "cumulative_gpa": 2.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-085",
+    "student_id": "stu-029",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 2.78,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-086",
+    "student_id": "stu-029",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.8,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-087",
+    "student_id": "stu-030",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.4,
+    "cumulative_gpa": 3.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-088",
+    "student_id": "stu-031",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.95,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-089",
+    "student_id": "stu-031",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-090",
+    "student_id": "stu-031",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-091",
+    "student_id": "stu-032",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.85,
+    "cumulative_gpa": 3.85,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-092",
+    "student_id": "stu-032",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.5,
+    "cumulative_gpa": 3.68,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-093",
+    "student_id": "stu-032",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.75,
+    "cumulative_gpa": 3.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-094",
+    "student_id": "stu-033",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.75,
+    "cumulative_gpa": 2.75,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-095",
+    "student_id": "stu-033",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 2.88,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-096",
+    "student_id": "stu-033",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-097",
+    "student_id": "stu-034",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.35,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-098",
+    "student_id": "stu-034",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.28,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-099",
+    "student_id": "stu-034",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-100",
+    "student_id": "stu-035",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-101",
+    "student_id": "stu-035",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.65,
+    "cumulative_gpa": 2.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-102",
+    "student_id": "stu-035",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.6,
+    "cumulative_gpa": 2.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-103",
+    "student_id": "stu-036",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-104",
+    "student_id": "stu-036",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.3,
+    "cumulative_gpa": 3.48,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-105",
+    "student_id": "stu-036",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-106",
+    "student_id": "stu-037",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-107",
+    "student_id": "stu-037",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.8,
+    "cumulative_gpa": 2.68,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-108",
+    "student_id": "stu-037",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.75,
+    "cumulative_gpa": 2.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-109",
+    "student_id": "stu-038",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-110",
+    "student_id": "stu-039",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-111",
+    "student_id": "stu-039",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-112",
+    "student_id": "stu-039",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-113",
+    "student_id": "stu-040",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-114",
+    "student_id": "stu-040",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.8,
+    "cumulative_gpa": 2.98,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-115",
+    "student_id": "stu-040",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-116",
+    "student_id": "stu-041",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.25,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-117",
+    "student_id": "stu-041",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.5,
+    "cumulative_gpa": 3.38,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-118",
+    "student_id": "stu-041",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-119",
+    "student_id": "stu-042",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-120",
+    "student_id": "stu-042",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.4,
+    "cumulative_gpa": 2.48,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-121",
+    "student_id": "stu-042",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-122",
+    "student_id": "stu-043",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 2.8,
+    "cumulative_gpa": 2.8,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-123",
+    "student_id": "stu-044",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.75,
+    "cumulative_gpa": 3.75,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-124",
+    "student_id": "stu-044",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.4,
+    "cumulative_gpa": 3.58,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-125",
+    "student_id": "stu-044",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-126",
+    "student_id": "stu-045",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.75,
+    "cumulative_gpa": 2.75,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-127",
+    "student_id": "stu-045",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 2.88,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-128",
+    "student_id": "stu-045",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-129",
+    "student_id": "stu-046",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.35,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-130",
+    "student_id": "stu-046",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.28,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-131",
+    "student_id": "stu-046",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-132",
+    "student_id": "stu-047",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.05,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-133",
+    "student_id": "stu-047",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-134",
+    "student_id": "stu-047",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-135",
+    "student_id": "stu-048",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-136",
+    "student_id": "stu-048",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.3,
+    "cumulative_gpa": 3.48,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-137",
+    "student_id": "stu-048",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-138",
+    "student_id": "stu-049",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-139",
+    "student_id": "stu-049",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.8,
+    "cumulative_gpa": 2.68,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-140",
+    "student_id": "stu-049",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.75,
+    "cumulative_gpa": 2.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-141",
+    "student_id": "stu-050",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.25,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-142",
+    "student_id": "stu-050",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 3.18,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-143",
+    "student_id": "stu-050",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-144",
+    "student_id": "stu-051",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-145",
+    "student_id": "stu-052",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-146",
+    "student_id": "stu-052",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.38,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-147",
+    "student_id": "stu-052",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-148",
+    "student_id": "stu-053",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.65,
+    "cumulative_gpa": 2.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-149",
+    "student_id": "stu-053",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 2.78,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-150",
+    "student_id": "stu-053",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.8,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-151",
+    "student_id": "stu-054",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.75,
+    "cumulative_gpa": 3.75,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-152",
+    "student_id": "stu-054",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.6,
+    "cumulative_gpa": 3.68,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-153",
+    "student_id": "stu-054",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.75,
+    "cumulative_gpa": 3.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-154",
+    "student_id": "stu-055",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-155",
+    "student_id": "stu-055",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.65,
+    "cumulative_gpa": 2.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-156",
+    "student_id": "stu-055",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.6,
+    "cumulative_gpa": 2.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-157",
+    "student_id": "stu-056",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-158",
+    "student_id": "stu-057",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.85,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-159",
+    "student_id": "stu-057",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 2.98,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-160",
+    "student_id": "stu-057",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-161",
+    "student_id": "stu-058",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-162",
+    "student_id": "stu-058",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.4,
+    "cumulative_gpa": 3.48,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-163",
+    "student_id": "stu-058",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-164",
+    "student_id": "stu-059",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.85,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-165",
+    "student_id": "stu-059",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-166",
+    "student_id": "stu-059",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-167",
+    "student_id": "stu-060",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.25,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-168",
+    "student_id": "stu-060",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 3.08,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-169",
+    "student_id": "stu-060",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-170",
+    "student_id": "stu-061",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-171",
+    "student_id": "stu-062",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.35,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-172",
+    "student_id": "stu-062",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.28,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-173",
+    "student_id": "stu-062",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-174",
+    "student_id": "stu-063",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.95,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-175",
+    "student_id": "stu-063",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-176",
+    "student_id": "stu-063",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-177",
+    "student_id": "stu-064",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.95,
+    "cumulative_gpa": 3.95,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-178",
+    "student_id": "stu-064",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.6,
+    "cumulative_gpa": 3.78,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-179",
+    "student_id": "stu-064",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.85,
+    "cumulative_gpa": 3.8,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-180",
+    "student_id": "stu-065",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.35,
+    "cumulative_gpa": 2.35,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-181",
+    "student_id": "stu-065",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.6,
+    "cumulative_gpa": 2.48,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-182",
+    "student_id": "stu-065",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-183",
+    "student_id": "stu-066",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-184",
+    "student_id": "stu-067",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.35,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-185",
+    "student_id": "stu-067",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-186",
+    "student_id": "stu-067",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.4,
+    "cumulative_gpa": 3.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-187",
+    "student_id": "stu-068",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.95,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-188",
+    "student_id": "stu-068",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.6,
+    "cumulative_gpa": 2.78,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-189",
+    "student_id": "stu-068",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.8,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-190",
+    "student_id": "stu-069",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.05,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-191",
+    "student_id": "stu-069",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.3,
+    "cumulative_gpa": 3.18,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-192",
+    "student_id": "stu-069",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-193",
+    "student_id": "stu-070",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-194",
+    "student_id": "stu-070",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.5,
+    "cumulative_gpa": 3.58,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-195",
+    "student_id": "stu-070",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-196",
+    "student_id": "stu-071",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-197",
+    "student_id": "stu-072",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.05,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-198",
+    "student_id": "stu-072",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.88,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-199",
+    "student_id": "stu-072",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-200",
+    "student_id": "stu-073",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-201",
+    "student_id": "stu-073",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.4,
+    "cumulative_gpa": 3.28,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-202",
+    "student_id": "stu-073",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.35,
+    "cumulative_gpa": 3.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-203",
+    "student_id": "stu-074",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-204",
+    "student_id": "stu-074",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.4,
+    "cumulative_gpa": 3.48,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-205",
+    "student_id": "stu-074",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-206",
+    "student_id": "stu-075",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-207",
+    "student_id": "stu-075",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.65,
+    "cumulative_gpa": 2.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-208",
+    "student_id": "stu-075",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.6,
+    "cumulative_gpa": 2.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-209",
+    "student_id": "stu-076",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.15,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-210",
+    "student_id": "stu-076",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.8,
+    "cumulative_gpa": 2.98,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-211",
+    "student_id": "stu-076",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-212",
+    "student_id": "stu-077",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.65,
+    "cumulative_gpa": 2.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-213",
+    "student_id": "stu-077",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 2.78,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-214",
+    "student_id": "stu-077",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.8,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-215",
+    "student_id": "stu-078",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.45,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-216",
+    "student_id": "stu-078",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.3,
+    "cumulative_gpa": 3.38,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-217",
+    "student_id": "stu-078",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-218",
+    "student_id": "stu-079",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-219",
+    "student_id": "stu-080",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.25,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-220",
+    "student_id": "stu-080",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 3.08,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-221",
+    "student_id": "stu-080",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-222",
+    "student_id": "stu-081",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.45,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-223",
+    "student_id": "stu-081",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.7,
+    "cumulative_gpa": 3.58,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-224",
+    "student_id": "stu-081",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-225",
+    "student_id": "stu-082",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.25,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-226",
+    "student_id": "stu-082",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 3.18,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-227",
+    "student_id": "stu-082",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-228",
+    "student_id": "stu-083",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.45,
+    "cumulative_gpa": 2.45,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-229",
+    "student_id": "stu-083",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.55,
+    "cumulative_gpa": 2.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-230",
+    "student_id": "stu-083",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.5,
+    "cumulative_gpa": 2.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-231",
+    "student_id": "stu-084",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.3,
+    "cumulative_gpa": 3.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-232",
+    "student_id": "stu-085",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.85,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-233",
+    "student_id": "stu-085",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 2.98,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-234",
+    "student_id": "stu-085",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-235",
+    "student_id": "stu-086",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.75,
+    "cumulative_gpa": 3.75,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-236",
+    "student_id": "stu-086",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.6,
+    "cumulative_gpa": 3.68,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-237",
+    "student_id": "stu-086",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.75,
+    "cumulative_gpa": 3.7,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-238",
+    "student_id": "stu-087",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.85,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-239",
+    "student_id": "stu-087",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-240",
+    "student_id": "stu-087",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-241",
+    "student_id": "stu-088",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-242",
+    "student_id": "stu-088",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.2,
+    "cumulative_gpa": 3.38,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-243",
+    "student_id": "stu-088",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.45,
+    "cumulative_gpa": 3.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-244",
+    "student_id": "stu-089",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.0,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-245",
+    "student_id": "stu-090",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.85,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-246",
+    "student_id": "stu-090",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.78,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-247",
+    "student_id": "stu-090",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.85,
+    "cumulative_gpa": 2.8,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-248",
+    "student_id": "stu-091",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.05,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-249",
+    "student_id": "stu-091",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.15,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-250",
+    "student_id": "stu-091",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 3.1,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-251",
+    "student_id": "stu-092",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.65,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-252",
+    "student_id": "stu-092",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.3,
+    "cumulative_gpa": 3.48,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-253",
+    "student_id": "stu-092",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.5,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-254",
+    "student_id": "stu-093",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.45,
+    "cumulative_gpa": 2.45,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-255",
+    "student_id": "stu-093",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.58,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-256",
+    "student_id": "stu-093",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.65,
+    "cumulative_gpa": 2.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-257",
+    "student_id": "stu-094",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.25,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-258",
+    "student_id": "stu-094",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.1,
+    "cumulative_gpa": 3.18,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-259",
+    "student_id": "stu-094",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.25,
+    "cumulative_gpa": 3.2,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-260",
+    "student_id": "stu-095",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.55,
+    "cumulative_gpa": 3.55,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-261",
+    "student_id": "stu-095",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.65,
+    "cumulative_gpa": 3.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-262",
+    "student_id": "stu-095",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.6,
+    "cumulative_gpa": 3.6,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-263",
+    "student_id": "stu-096",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.05,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-264",
+    "student_id": "stu-096",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.7,
+    "cumulative_gpa": 2.88,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-265",
+    "student_id": "stu-096",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.95,
+    "cumulative_gpa": 2.9,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-266",
+    "student_id": "stu-097",
+    "term": "2024-Fall",
+    "term_index": 1,
+    "term_gpa": 3.3,
+    "cumulative_gpa": 3.3,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-267",
+    "student_id": "stu-098",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.05,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-268",
+    "student_id": "stu-098",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.9,
+    "cumulative_gpa": 2.98,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-269",
+    "student_id": "stu-098",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.05,
+    "cumulative_gpa": 3.0,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-270",
+    "student_id": "stu-099",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 2.35,
+    "cumulative_gpa": 2.35,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-271",
+    "student_id": "stu-099",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 2.45,
+    "cumulative_gpa": 2.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-272",
+    "student_id": "stu-099",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 2.4,
+    "cumulative_gpa": 2.4,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-273",
+    "student_id": "stu-100",
+    "term": "2023-Fall",
+    "term_index": 1,
+    "term_gpa": 3.85,
+    "cumulative_gpa": 3.85,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-274",
+    "student_id": "stu-100",
+    "term": "2024-Spring",
+    "term_index": 2,
+    "term_gpa": 3.5,
+    "cumulative_gpa": 3.68,
+    "data_source": "SIS"
+  },
+  {
+    "id": "stg-275",
+    "student_id": "stu-100",
+    "term": "2024-Fall",
+    "term_index": 3,
+    "term_gpa": 3.75,
+    "cumulative_gpa": 3.7,
+    "data_source": "SIS"
+  }
+]
