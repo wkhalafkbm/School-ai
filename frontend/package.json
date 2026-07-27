@@ -2,11 +2,16 @@
   "name": "university-ai-frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "pretest": "node scripts/check-node.mjs",
     "test": "vitest run",
+    "pretest:watch": "node scripts/check-node.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
   },
