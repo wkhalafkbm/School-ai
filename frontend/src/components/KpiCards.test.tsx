@@ -5,7 +5,7 @@ import KpiCards, { MetricDetail } from "./KpiCards";
 
 const METRICS = {
   students_needing_attention: 3,
-  at_risk_detected_early: 1,
+  at_risk_detected_early: 3,
   registration_issues_resolved: 0,
   graduation_delays_prevented: 1,
   faculty_overload_alerts: 1,
@@ -29,12 +29,14 @@ const ATTENTION_DETAIL: MetricDetail = {
 
 const EARLY_DETAIL: MetricDetail = {
   metric_key: "at_risk_detected_early",
-  definition: "Low-GPA students with no open support case.",
+  definition: "Students whose GPA is trending downward.",
   destination: { label: "Academic Risk", href: "/academic-risk" },
-  empty_message: "Every student below a 2.5 GPA already has an open support case.",
-  total: 1,
+  empty_message: "No student shows a downward GPA trend right now.",
+  total: 3,
   rows: [
-    { id: "stu-007", name: "Layla Al-Mutairi", context: "Nursing", status: "watch", detail: "GPA 2.3 — no open support case" },
+    { id: "stu-003", name: "Fahad Al-Ajmi", context: "Computer Science", status: "urgent", detail: "GPA declined 1.90 → 1.40 in 2024-Fall (sharp drop)" },
+    { id: "stu-015", name: "Hamad Al-Dashti", context: "Business Admin", status: "needs_attention", detail: "GPA declined 3.00 → 2.40 in 2024-Fall (sharp drop)" },
+    { id: "stu-013", name: "Turki Al-Azemi", context: "Information Systems", status: "watch", detail: "GPA declined 2.90 → 2.65 → 2.40 across 2023-Fall–2024-Fall (sustained decline)" },
   ],
 };
 
@@ -92,7 +94,7 @@ describe("KpiCards", () => {
   it("displays the numeric value for each metric", () => {
     render(<KpiCards metrics={METRICS} />);
     expect(screen.getByTestId("kpi-students_needing_attention")).toHaveTextContent("3");
-    expect(screen.getByTestId("kpi-at_risk_detected_early")).toHaveTextContent("1");
+    expect(screen.getByTestId("kpi-at_risk_detected_early")).toHaveTextContent("3");
     expect(screen.getByTestId("kpi-registration_issues_resolved")).toHaveTextContent("0");
     expect(screen.getByTestId("kpi-graduation_delays_prevented")).toHaveTextContent("1");
     expect(screen.getByTestId("kpi-faculty_overload_alerts")).toHaveTextContent("1");
@@ -274,8 +276,14 @@ describe("KpiCards drill-down panel", () => {
 
     const panels = screen.getAllByTestId("kpi-drilldown");
     expect(panels).toHaveLength(1);
-    expect(within(panels[0]).getByText("Layla Al-Mutairi")).toBeInTheDocument();
-    expect(within(panels[0]).queryByText("Fahad Al-Ajmi")).toBeNull();
+    // Identify the surviving panel by its definition, which every metric writes
+    // for itself and no two share. Naming a student here instead would tie this
+    // test to which rows the fixtures happen to hold: the same student can
+    // legitimately appear under two metrics — carrying an LMS risk flag and a
+    // declining GPA trend at once — and that would silently stop proving a swap.
+    expect(within(panels[0]).getByTestId("drilldown-definition")).toHaveTextContent(
+      EARLY_DETAIL.definition
+    );
   });
 
   it("keeps the five-column grid to five cards, so opening a panel cannot reflow it", async () => {
@@ -381,6 +389,32 @@ describe("KpiCards zero-count empty state", () => {
     expect(screen.getByTestId("kpi-drilldown")).toBeInTheDocument();
     expect(screen.getByTestId("drilldown-definition")).toHaveTextContent(
       REGISTRATION_DETAIL.definition
+    );
+  });
+
+  it("a term with nobody declining still expands and says so in trend terms", async () => {
+    // #69: zero is a real answer for the trend KPI, not a failed load. Asserted
+    // on this metric specifically because its empty message is the one place a
+    // reader learns the headline number means a trajectory, not a low GPA.
+    const user = userEvent.setup();
+    render(
+      <KpiCards
+        metrics={{ ...METRICS, at_risk_detected_early: 0 }}
+        details={{
+          ...ALL_DETAILS,
+          at_risk_detected_early: { ...EARLY_DETAIL, total: 0, rows: [] },
+        }}
+      />
+    );
+
+    const card = screen.getByRole("button", { name: /At-Risk Detected Early/i });
+    await user.click(card);
+
+    expect(card).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("kpi-drilldown")).toBeInTheDocument();
+    expect(screen.queryAllByTestId("drilldown-row")).toHaveLength(0);
+    expect(screen.getByTestId("drilldown-empty")).toHaveTextContent(
+      "No student shows a downward GPA trend right now."
     );
   });
 

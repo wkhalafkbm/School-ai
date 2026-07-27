@@ -96,7 +96,7 @@ def test_metrics_values_match_seeded_data(client):
     data = client.get("/api/overview/metrics").json()
     # seed.py coerces 'none' → False, so only 'high'/'medium'/'low' risk_flag rows count
     assert data["students_needing_attention"] == 3
-    assert data["at_risk_detected_early"] == 1
+    assert data["at_risk_detected_early"] == 3  # the three declining series, not the low-GPA snapshot
     assert data["registration_issues_resolved"] == 0
     assert data["graduation_delays_prevented"] == 1
     assert data["faculty_overload_alerts"] == 1  # fac-001 is 15 credits against a 12-credit cap
@@ -343,23 +343,260 @@ def test_metric_detail_404s_for_an_unknown_metric(client):
     assert client.get("/api/overview/metrics/not_a_metric/detail").status_code == 404
 
 
-# ── at_risk_detected_early — a single-row metric on the seeded data ───────────
+# ── at_risk_detected_early — the trend rule's population (#69) ────────────────
 
-def test_at_risk_detected_early_names_the_one_uncased_low_gpa_student(client):
+def test_at_risk_detected_early_counts_the_students_the_trend_rule_flags(client):
+    """
+    The KPI is "who is sliding", not "who is currently low". Three fixture series
+    decline: stu-003, stu-013 and stu-015 — the same three FLAGGED_BY_TREND pins
+    for the queue, because both read the one rule.
+
+    stu-099 is the student the old snapshot definition counted: a 2.40 GPA held
+    flat across three terms. Nothing about them was ever detected *early*, and
+    they are correctly absent now.
+    """
+    assert client.get("/api/overview/metrics").json()["at_risk_detected_early"] == 3
+
+
+def test_at_risk_detected_early_rows_carry_the_tier_and_the_rules_own_reason(client):
+    """
+    Severity first, then name — and the reason quotes the student's real figures
+    off the #63 fixture series. A row explaining the decline in placeholder terms
+    would leave an advisor with a number and no next action.
+    """
     data = client.get("/api/overview/metrics/at_risk_detected_early/detail").json()
 
-    # stu-099 is the only student under 2.5 GPA with no open support case;
-    # the other low-GPA students already have one and so are not "early".
-    assert data["total"] == 1
     assert data["rows"] == [
         {
-            "id": "stu-099",
-            "name": "Mansour Al-Subaie",
+            "id": "stu-003",
+            "name": "Fahad Al-Ajmi",
+            "context": "Computer Science",
+            "status": "urgent",
+            "detail": (
+                "GPA declined 1.90 → 1.40 in 2024-Fall (sharp drop); "
+                "GPA declined 2.40 → 1.90 → 1.40 across 2023-Fall–2024-Fall, "
+                "a total of 1.00 over two terms (sustained decline)"
+            ),
+        },
+        {
+            "id": "stu-015",
+            "name": "Hamad Al-Dashti",
             "context": "Business Administration",
+            "status": "needs_attention",
+            "detail": "GPA declined 3.00 → 2.40 in 2024-Fall (sharp drop)",
+        },
+        {
+            "id": "stu-013",
+            "name": "Turki Al-Azemi",
+            "context": "Information Systems",
             "status": "watch",
-            "detail": "GPA 2.4 — no open support case",
-        }
+            "detail": (
+                "GPA declined 2.90 → 2.65 → 2.40 across 2023-Fall–2024-Fall, "
+                "a total of 0.50 over two terms (sustained decline)"
+            ),
+        },
     ]
+
+
+def test_at_risk_detected_early_explains_itself_in_trend_terms(client):
+    """
+    The panel's prose is the only place a reader learns what the headline number
+    means. Leaving the old snapshot wording there would have the card counting
+    one population and the panel describing another.
+    """
+    data = client.get("/api/overview/metrics/at_risk_detected_early/detail").json()
+
+    definition = data["definition"].lower()
+    assert "trend" in definition or "declin" in definition
+    # The snapshot definition's two tells, both retired by #69.
+    assert "2.5" not in data["definition"]
+    assert "support case" not in definition
+
+    assert data["empty_message"] == "No student shows a downward GPA trend right now."
+
+
+def test_the_kpi_never_diverges_from_the_pure_rule(client):
+    """
+    #69's divergence guard, and the reason the count is not a second statement of
+    the rule in SQL.
+
+    The card's number arrives through the whole chain — fixture, seed, the term
+    series query, the counter. This recomputes the population from the #63
+    fixture file with the pure rule and nothing else. A break anywhere in that
+    chain, or any future attempt to restate the rule somewhere along it, lands
+    here as a disagreement rather than as a quietly wrong headline number.
+    """
+    import json
+
+    from app.rules import check_gpa_trend
+
+    series_by_student: dict[str, list[dict]] = {}
+    for row in json.loads((FIXTURES_DIR / "student_term_gpa.json").read_text()):
+        series_by_student.setdefault(row["student_id"], []).append(row)
+
+    flagged_by_rule = set()
+    for student_id, series in series_by_student.items():
+        series.sort(key=lambda row: row["term_index"])
+        # The same two students the rule declines to judge: an unrecorded term
+        # makes a term-over-term delta a lie, and one term is not a trend.
+        if any(r["term_gpa"] is None or r["cumulative_gpa"] is None for r in series):
+            continue
+        if len(series) < 2:
+            continue
+        if check_gpa_trend(series).flagged:
+            flagged_by_rule.add(student_id)
+
+    # Pinned so a fixture edit that empties the population fails loudly here
+    # rather than making the comparison below trivially true at zero.
+    assert flagged_by_rule == {"stu-003", "stu-013", "stu-015"}
+
+    metrics = client.get("/api/overview/metrics").json()
+    detail = client.get("/api/overview/metrics/at_risk_detected_early/detail").json()
+    assert metrics["at_risk_detected_early"] == len(flagged_by_rule)
+    assert detail["total"] == len(flagged_by_rule)
+
+
+@pytest.fixture
+def nobody_is_declining(engine):
+    """
+    A population with no downward trend in it — the three declining students lose
+    their term history, and they are the only three the rule flags.
+
+    Restored from the #63 fixture file afterwards so the rest of the module still
+    sees the seeded population.
+    """
+    import json
+
+    from sqlalchemy import text
+
+    ids = ["stu-003", "stu-013", "stu-015"]
+
+    with engine.connect() as conn:
+        conn.execute(
+            text("DELETE FROM student_term_gpa WHERE student_id = ANY(:ids)"),
+            {"ids": ids},
+        )
+        conn.commit()
+
+    yield
+
+    restored = [
+        row
+        for row in json.loads((FIXTURES_DIR / "student_term_gpa.json").read_text())
+        if row["student_id"] in ids
+    ]
+    with engine.connect() as conn:
+        for row in restored:
+            conn.execute(
+                text("""
+                    INSERT INTO student_term_gpa
+                        (id, student_id, term, term_index, term_gpa,
+                         cumulative_gpa, data_source)
+                    VALUES
+                        (:id, :student_id, :term, :term_index, :term_gpa,
+                         :cumulative_gpa, CAST(:data_source AS datasource))
+                """),
+                row,
+            )
+        conn.commit()
+
+
+def test_at_risk_detected_early_still_explains_itself_with_nothing_to_show(
+    client, nobody_is_declining
+):
+    """
+    Zero is a real answer for this metric, not a failure to load. The card still
+    expands, and what it opens onto says why it is empty in the metric's own
+    terms — a generic "no data" would read as a broken panel.
+    """
+    response = client.get("/api/overview/metrics/at_risk_detected_early/detail")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["total"] == 0
+    assert data["rows"] == []
+    assert data["empty_message"] == "No student shows a downward GPA trend right now."
+    assert data["definition"].strip()
+    assert data["destination"] == EXPECTED_DESTINATIONS["at_risk_detected_early"]
+
+    assert client.get("/api/overview/metrics").json()["at_risk_detected_early"] == 0
+
+
+@pytest.fixture
+def five_extra_declining_students(engine):
+    """
+    Five more students in a sharp single-term drop, pushing the flagged
+    population past the six-row cap. Named to sort last, so what the cap drops is
+    decided by severity rather than by the alphabet.
+    """
+    from sqlalchemy import text
+
+    ids = [f"stu-trend-cap-{i}" for i in range(5)]
+
+    with engine.connect() as conn:
+        for i, sid in enumerate(ids):
+            conn.execute(
+                text("""
+                    INSERT INTO students (id, name, program_id, status, data_source)
+                    VALUES (:id, :name, 'prog-001', 'enrolled', 'SIS')
+                """),
+                {"id": sid, "name": f"Zzz Trendfiller {i}"},
+            )
+            # 3.50 → 2.90 is a 0.60 sharp drop with a healthy cumulative, so the
+            # rule lands every one of them on needs_attention.
+            for index, (term, term_gpa, cumulative) in enumerate(
+                [("2024-Spring", 3.5, 3.5), ("2024-Fall", 2.9, 3.2)], start=1
+            ):
+                conn.execute(
+                    text("""
+                        INSERT INTO student_term_gpa
+                            (id, student_id, term, term_index, term_gpa,
+                             cumulative_gpa, data_source)
+                        VALUES (:id, :sid, :term, :idx, :gpa, :cum, 'SIS')
+                    """),
+                    {
+                        "id": f"stg-cap-{i}-{index}",
+                        "sid": sid,
+                        "term": term,
+                        "idx": index,
+                        "gpa": term_gpa,
+                        "cum": cumulative,
+                    },
+                )
+        conn.commit()
+
+    yield
+
+    with engine.connect() as conn:
+        conn.execute(text("DELETE FROM student_term_gpa WHERE id LIKE 'stg-cap-%'"))
+        conn.execute(text("DELETE FROM students WHERE id LIKE 'stu-trend-cap-%'"))
+        conn.commit()
+
+
+def test_at_risk_detected_early_caps_at_six_worst_first_while_the_total_counts_all(
+    client, five_extra_declining_students
+):
+    """
+    The cap is a display limit, not a change to the number. Severity decides who
+    survives it: the 'watch' student falls off the end while every more urgent
+    row stays, so the panel never truncates the worst case out of view.
+    """
+    data = client.get("/api/overview/metrics/at_risk_detected_early/detail").json()
+
+    assert data["total"] == 8  # 3 seeded + 5 added
+    assert len(data["rows"]) == 6
+    assert client.get("/api/overview/metrics").json()["at_risk_detected_early"] == 8
+
+    assert [row["name"] for row in data["rows"]] == [
+        "Fahad Al-Ajmi",       # urgent
+        "Hamad Al-Dashti",     # needs_attention, and H sorts before Z
+        "Zzz Trendfiller 0",
+        "Zzz Trendfiller 1",
+        "Zzz Trendfiller 2",
+        "Zzz Trendfiller 3",
+    ]
+    # Turki Al-Azemi is the 'watch' row, and the only tier the cap was allowed to drop.
+    assert "Turki Al-Azemi" not in {row["name"] for row in data["rows"]}
 
 
 # ── registration_issues_resolved — genuinely zero on the seeded data ──────────

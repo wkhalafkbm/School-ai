@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const METRICS = {
   students_needing_attention: 14,
-  at_risk_detected_early: 1,
+  at_risk_detected_early: 3,
   registration_issues_resolved: 0,
   graduation_delays_prevented: 1,
   faculty_overload_alerts: 1,
