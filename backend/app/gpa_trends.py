@@ -188,15 +188,17 @@ def _linked_workflow_item(db: Session, student_id: str) -> dict | None:
     }
 
 
-def gpa_trend_queue_rows(db: Session) -> list[dict]:
+def gpa_trend_flagged(db: Session) -> list[dict]:
     """
-    A priority-queue row for every student the trend rule currently flags (#66).
+    Every student the trend rule currently flags, with the tier and reason it
+    assigned — the one answer to "who is declining, and how badly?".
 
-    Like build_gpa_trend, the tier is computed on read and nothing is persisted,
-    so the queue and the Academic Risk trend panel read the same rule over the
-    same history and cannot disagree about who is declining, or how badly.
+    The priority queue (#66) and the At-Risk Detected Early KPI (#69) both read
+    this rather than each deciding for themselves, so the headline number on the
+    overview page and the queue below it are the same population by construction.
+    Like build_gpa_trend, the tier is computed on read and nothing is persisted.
     """
-    rows = []
+    flagged = []
 
     for student_id, series in _term_series_by_student(db).items():
         if len(series) < MIN_TERMS:
@@ -207,10 +209,9 @@ def gpa_trend_queue_rows(db: Session) -> list[dict]:
             continue
 
         latest = series[-1]
-        rows.append({
+        flagged.append({
             "student_id": student_id,
             "student_name": latest["student_name"],
-            "stage": STAGE,
             "status": gpa_trend_status(
                 result,
                 term_gpa=latest["term_gpa"],
@@ -219,7 +220,12 @@ def gpa_trend_queue_rows(db: Session) -> list[dict]:
             "reason": result.reason,
         })
 
-    return rows
+    return flagged
+
+
+def gpa_trend_queue_rows(db: Session) -> list[dict]:
+    """The flagged students as priority-queue rows — the stage is what the queue adds."""
+    return [{**row, "stage": STAGE} for row in gpa_trend_flagged(db)]
 
 
 def evaluate_gpa_trends(db: Session) -> dict:

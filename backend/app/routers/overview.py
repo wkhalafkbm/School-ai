@@ -1,53 +1,58 @@
+from collections.abc import Callable
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.gpa_trends import gpa_trend_queue_rows
+from app.gpa_trends import gpa_trend_flagged, gpa_trend_queue_rows
 from app.stages import Stage
 from app.status import StatusCode, status_meta
 
 router = APIRouter(prefix="/api/overview", tags=["overview"])
 
 
-# One count query per KPI, shared by the cards endpoint and the drill-down's
-# total, so the number on a card and the panel explaining it can never disagree.
-METRIC_COUNT_SQL: dict[str, str] = {
-    "students_needing_attention": (
+def _sql_counter(sql: str) -> Callable[[Session], int]:
+    """A counter backed by a single scalar query — the shape most KPIs take."""
+    def count(db: Session) -> int:
+        return int(db.execute(text(sql)).scalar() or 0)
+
+    return count
+
+
+# One counter per KPI, shared by the cards endpoint and the drill-down's total,
+# so the number on a card and the panel explaining it can never disagree.
+#
+# Most counters are a scalar query. at_risk_detected_early is not: its population
+# comes from a rule that reads a whole term series, and restating that rule in
+# SQL is exactly how the card would start disagreeing with the drill-down rows
+# beside it — those rows need the rule's tier and reason string regardless. So
+# the counter calls the rule, the same way the priority queue below does.
+METRIC_COUNTERS: dict[str, Callable[[Session], int]] = {
+    "students_needing_attention": _sql_counter(
         "SELECT COUNT(DISTINCT student_id) FROM lms_signals WHERE risk_flag != 'none'"
     ),
-    "at_risk_detected_early": """
-        SELECT COUNT(*) FROM students s
-        WHERE s.gpa < 2.5
-          AND NOT EXISTS (
-              SELECT 1 FROM support_cases sc
-              WHERE sc.student_id = s.id
-                AND sc.status != 'closed'
-          )
-    """,
-    "registration_issues_resolved": """
+    "at_risk_detected_early": lambda db: len(gpa_trend_flagged(db)),
+    "registration_issues_resolved": _sql_counter("""
         SELECT COUNT(*) FROM workflow_items
         WHERE workflow_type = 'registration_resolution'
           AND status = 'approved'
-    """,
-    "graduation_delays_prevented": (
+    """),
+    "graduation_delays_prevented": _sql_counter(
         "SELECT COUNT(*) FROM interventions WHERE status = 'completed'"
     ),
-    "faculty_overload_alerts": """
+    "faculty_overload_alerts": _sql_counter("""
         SELECT COUNT(*) FROM faculty
         WHERE max_credits IS NOT NULL
           AND current_credits IS NOT NULL
           AND current_credits >= max_credits
-    """,
+    """),
 }
 
 
 @router.get("/metrics")
 def metrics(db: Session = Depends(get_db)):
-    return {
-        key: int(db.execute(text(sql)).scalar() or 0)
-        for key, sql in METRIC_COUNT_SQL.items()
-    }
+    return {key: counter(db) for key, counter in METRIC_COUNTERS.items()}
 
 
 # The panel shows the six that matter most. Capped in the query, not in the
@@ -104,35 +109,48 @@ def _students_needing_attention_rows(db: Session) -> list[dict]:
     ]
 
 
-def _at_risk_detected_early_rows(db: Session) -> list[dict]:
-    # Every row here is uniformly 'watch' — these students were caught before
-    # anyone raised a case — so severity ordering falls through to GPA, worst first.
+def _program_names(db: Session, student_ids: list[str]) -> dict[str, str | None]:
+    """Programme name per student — the context column, looked up for the capped rows only."""
+    if not student_ids:
+        return {}
+
     rows = db.execute(
         text("""
-            SELECT s.id, s.name, p.name AS program_name, s.gpa
+            SELECT s.id, p.name AS program_name
             FROM students s
             LEFT JOIN programs p ON p.id = s.program_id
-            WHERE s.gpa < 2.5
-              AND NOT EXISTS (
-                  SELECT 1 FROM support_cases sc
-                  WHERE sc.student_id = s.id
-                    AND sc.status != 'closed'
-              )
-            ORDER BY s.gpa, s.name
-            LIMIT :cap
+            WHERE s.id = ANY(:ids)
         """),
-        {"cap": DRILL_DOWN_ROW_CAP},
+        {"ids": student_ids},
     ).fetchall()
+
+    return {r.id: r.program_name for r in rows}
+
+
+def _at_risk_detected_early_rows(db: Session) -> list[dict]:
+    # The rule owns the tier and the reason; this function only ranks its verdicts
+    # and dresses them for the panel. Ordering and the cap have to happen here
+    # rather than in SQL, because the tier being sorted on does not exist until
+    # the rule has read the whole term series.
+    flagged = sorted(
+        gpa_trend_flagged(db),
+        key=lambda row: (
+            -status_meta[StatusCode(row["status"])]["severity_rank"],
+            row["student_name"],
+        ),
+    )[:DRILL_DOWN_ROW_CAP]
+
+    programs = _program_names(db, [row["student_id"] for row in flagged])
 
     return [
         {
-            "id": r.id,
-            "name": r.name,
-            "context": r.program_name,
-            "status": StatusCode.watch,
-            "detail": f"GPA {r.gpa:.1f} — no open support case",
+            "id": row["student_id"],
+            "name": row["student_name"],
+            "context": programs.get(row["student_id"]),
+            "status": row["status"],
+            "detail": row["reason"],
         }
-        for r in rows
+        for row in flagged
     ]
 
 
@@ -234,11 +252,12 @@ METRIC_DETAIL_META: dict[str, dict] = {
     },
     "at_risk_detected_early": {
         "definition": (
-            "Students below a 2.5 GPA with no open support case — surfaced by the "
-            "platform before anyone raised a case for them."
+            "Students whose GPA is trending downward — a sharp term-over-term drop "
+            "or a sustained slide across three terms. Caught by the trajectory, "
+            "which turns before the absolute number does."
         ),
         "destination": {"label": "Academic Risk", "href": "/academic-risk"},
-        "empty_message": "Every student below a 2.5 GPA already has an open support case.",
+        "empty_message": "No student shows a downward GPA trend right now.",
         "rows": _at_risk_detected_early_rows,
     },
     "registration_issues_resolved": {
@@ -276,14 +295,12 @@ def metric_detail(metric_key: str, db: Session = Depends(get_db)):
     if meta is None:
         raise HTTPException(status_code=404, detail=f"No drill-down for metric {metric_key!r}")
 
-    total = db.execute(text(METRIC_COUNT_SQL[metric_key])).scalar() or 0
-
     return {
         "metric_key": metric_key,
         "definition": meta["definition"],
         "destination": meta["destination"],
         "empty_message": meta["empty_message"],
-        "total": int(total),
+        "total": METRIC_COUNTERS[metric_key](db),
         "rows": meta["rows"](db),
     }
 
