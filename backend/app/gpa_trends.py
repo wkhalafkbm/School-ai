@@ -223,6 +223,31 @@ def gpa_trend_flagged(db: Session) -> list[dict]:
     return flagged
 
 
+def gpa_trend_tier_counts(db: Session) -> dict[str, int]:
+    """
+    How many students the trend rule places in each tier — the Academic Risk
+    header's numbers when the page is on the Trend lens (#70).
+
+    Counted off gpa_trend_flagged rather than restated in SQL, so the header,
+    the priority queue (#66) and the KPI (#69) are the one population by
+    construction.
+    """
+    counts = {
+        StatusCode.watch: 0,
+        StatusCode.needs_attention: 0,
+        StatusCode.urgent: 0,
+    }
+
+    for row in gpa_trend_flagged(db):
+        counts[StatusCode(row["status"])] += 1
+
+    return {
+        "watch_count": counts[StatusCode.watch],
+        "needs_attention_count": counts[StatusCode.needs_attention],
+        "urgent_count": counts[StatusCode.urgent],
+    }
+
+
 def gpa_trend_queue_rows(db: Session) -> list[dict]:
     """The flagged students as priority-queue rows — the stage is what the queue adds."""
     return [{**row, "stage": STAGE} for row in gpa_trend_flagged(db)]

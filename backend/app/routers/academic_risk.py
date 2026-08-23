@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.evidence import build_evidence
-from app.gpa_trends import build_gpa_trend, evaluate_gpa_trends
+from app.gpa_trends import build_gpa_trend, evaluate_gpa_trends, gpa_trend_tier_counts
 from app.gateway import iam, orchestrate
 from app.gateway.config import get_agent_id
 from app.stages import Stage
@@ -88,6 +88,9 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     urgent_count = int(counts_row.urgent_count or 0)
     needs_attention_count = int(counts_row.needs_attention_count or 0)
     watch_count = int(counts_row.watch_count or 0)
+
+    # --- the same counts under the Trend lens: students per trend tier (#70) ---
+    trend_counts = gpa_trend_tier_counts(db)
 
     # --- student profile ---
     student_row = db.execute(
@@ -299,6 +302,17 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
             "watch_count": watch_count,
             "needs_attention_count": needs_attention_count,
             "urgent_count": urgent_count,
+        },
+        # The same three numbers under the Trend lens (#70). Both lenses ride
+        # one payload so the header can swap them without a second request or
+        # any arithmetic of its own.
+        "trend_stage_summary": {
+            "health": _academic_risk_health(
+                trend_counts["urgent_count"],
+                trend_counts["needs_attention_count"],
+                trend_counts["watch_count"],
+            ),
+            **trend_counts,
         },
         "student": {
             "id": student_row.id,

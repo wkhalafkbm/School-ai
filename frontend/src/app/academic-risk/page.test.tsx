@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { act } from "react";
 import AcademicRiskPage from "./page";
 
@@ -34,6 +34,15 @@ const MOCK_PROFILE = {
     watch_count: 0,
     needs_attention_count: 2,
     urgent_count: 1,
+  },
+  // The same three numbers under the Trend lens (#70) — deliberately a
+  // different population from the snapshot triple above, so a header that
+  // ignored the toggle could not pass by coincidence.
+  trend_stage_summary: {
+    health: "needs_attention",
+    watch_count: 3,
+    needs_attention_count: 5,
+    urgent_count: 0,
   },
   student: {
     id: "stu-003",
@@ -615,6 +624,63 @@ describe("AcademicRiskPage", () => {
     renderTrendMode(NO_TREND_PROFILE);
 
     expect(screen.getByText(/no workflow item opened/i)).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue #70 — the stage header follows the toggle: the counts and the health
+  // badge speak whichever lens is active
+  // -------------------------------------------------------------------------
+
+  /** The stage header's three numbers, read the way the page renders them. */
+  function headerCounts() {
+    return [/^watch:/i, /^needs attention:/i, /^urgent:/i].map(
+      (label) => screen.getByText(label).textContent
+    );
+  }
+
+  it("swaps the header counts for the trend tiers in Trend mode", () => {
+    renderResolvedPage();
+
+    expect(headerCounts()).toEqual(["Watch: 0", "Needs Attention: 2", "Urgent: 1"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+
+    expect(headerCounts()).toEqual(["Watch: 3", "Needs Attention: 5", "Urgent: 0"]);
+  });
+
+  it("the health badge follows the active lens", () => {
+    renderResolvedPage();
+    const header = screen.getByRole("heading", { name: "Academic Risk" })
+      .parentElement!;
+
+    // Exact match, so the badge is what is found and not the "Urgent: 1" count
+    // beside it.
+    expect(within(header).getByText("Urgent")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+
+    expect(within(header).getByText("Needs Attention")).toBeInTheDocument();
+    expect(within(header).queryByText("Urgent")).not.toBeInTheDocument();
+  });
+
+  it("swaps the numbers in the same nodes and restores the snapshot on the way back", () => {
+    renderResolvedPage();
+    const before = [/^watch:/i, /^needs attention:/i, /^urgent:/i].map((label) =>
+      screen.getByText(label)
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Trend" }));
+
+    // The very same three elements, re-numbered — not a second block swapped in
+    // beside the first, which is what would move the header on screen.
+    const after = [/^watch:/i, /^needs attention:/i, /^urgent:/i].map((label) =>
+      screen.getByText(label)
+    );
+    expect(after).toEqual(before);
+
+    fireEvent.click(screen.getByRole("button", { name: "Snapshot" }));
+
+    expect(headerCounts()).toEqual(["Watch: 0", "Needs Attention: 2", "Urgent: 1"]);
   });
 
   it("the POST call targets student affairs officer", async () => {

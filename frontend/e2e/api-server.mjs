@@ -247,6 +247,15 @@ const ROUTES = {
       needs_attention_count: 3,
       urgent_count: 1,
     },
+    // What the header shows on the Trend lens (#70): the same three counts over
+    // the students the GPA trend rule flags, a smaller population than the LMS
+    // snapshot above.
+    trend_stage_summary: {
+      health: "urgent",
+      watch_count: 1,
+      needs_attention_count: 1,
+      urgent_count: 1,
+    },
     student: {
       id: "stu-003",
       name: "Fahad Al-Ajmi",

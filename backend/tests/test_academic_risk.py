@@ -132,6 +132,160 @@ def test_stage_summary_urgent_count_is_at_least_one(client):
 
 
 # ---------------------------------------------------------------------------
+# Issue #70 — the header counts follow the Snapshot | Trend toggle, so the
+# payload carries both lenses and the page swaps between them without doing
+# any arithmetic of its own.
+# ---------------------------------------------------------------------------
+
+def test_trend_stage_summary_counts_students_by_trend_tier(client):
+    """
+    The trend lens counts who is *sliding*, tier by tier. On the #63 fixture
+    series exactly three students decline and the rule lands one in each tier:
+    stu-003 urgent, stu-015 needs_attention, stu-013 watch — the same three the
+    KPI (#69) and the priority queue (#66) name.
+    """
+    summary = client.get("/api/academic-risk/profile").json()["trend_stage_summary"]
+
+    assert summary["watch_count"] == 1
+    assert summary["needs_attention_count"] == 1
+    assert summary["urgent_count"] == 1
+
+
+def test_trend_stage_summary_health_is_the_worst_tier_present(client):
+    """
+    The badge beside the title has to speak the lens it sits above. stu-003 is
+    declining urgently, so the Trend lens reads 'urgent' — same worst-severity
+    classification the snapshot health already uses.
+    """
+    summary = client.get("/api/academic-risk/profile").json()["trend_stage_summary"]
+
+    assert summary["health"] == "urgent"
+
+
+@pytest.fixture
+def fahad_has_no_gpa_history(engine):
+    """
+    stu-003's term series removed — the one student the trend rule calls urgent,
+    and the only urgent LMS flag in the snapshot population. Whichever triple
+    still reads 'urgent' afterwards is the one that never looked at the trend.
+
+    Restored from the #63 fixture file afterwards so the rest of the module still
+    sees the seeded population.
+    """
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        conn.execute(
+            text("DELETE FROM student_term_gpa WHERE student_id = :sid"),
+            {"sid": "stu-003"},
+        )
+        conn.commit()
+
+    yield
+
+    restored = [
+        row
+        for row in json.loads((FIXTURES_DIR / "student_term_gpa.json").read_text())
+        if row["student_id"] == "stu-003"
+    ]
+    with engine.connect() as conn:
+        for row in restored:
+            conn.execute(
+                text("""
+                    INSERT INTO student_term_gpa
+                        (id, student_id, term, term_index, term_gpa,
+                         cumulative_gpa, data_source)
+                    VALUES
+                        (:id, :student_id, :term, :term_index, :term_gpa,
+                         :cumulative_gpa, CAST(:data_source AS datasource))
+                """),
+                row,
+            )
+        conn.commit()
+
+
+def test_the_two_lenses_count_separate_populations(client, fahad_has_no_gpa_history):
+    """
+    The point of the toggle: 'who is currently flagged in the LMS' and 'who is
+    sliding' are different questions with different answers.
+
+    With stu-003's GPA history gone the trend lens loses its urgent tier and
+    falls to needs_attention (stu-015), while the snapshot lens — counted off
+    lms_signals, which nothing here touched — is unmoved, count for count.
+    """
+    data = client.get("/api/academic-risk/profile").json()
+
+    assert data["trend_stage_summary"] == {
+        "health": "needs_attention",
+        "watch_count": 1,
+        "needs_attention_count": 1,
+        "urgent_count": 0,
+    }
+    # Straight off the lms_signals fixture: one student flagged high, two medium.
+    assert data["stage_summary"] == {
+        "health": "urgent",
+        "watch_count": 0,
+        "needs_attention_count": 2,
+        "urgent_count": 1,
+    }
+
+
+def test_the_trend_header_never_diverges_from_the_rule_or_the_queue(client):
+    """
+    #70's divergence guard: the header is a third reader of the #64 rule, after
+    the KPI (#69) and the priority queue (#66).
+
+    The tally below is recomputed from the #63 fixture file with the pure rule
+    and nothing else, so a break anywhere in the chain — fixture, seed, term
+    series query, tier counter — lands here rather than as a quietly wrong
+    number beside the page title. The queue is then asked about the same
+    students: two panels citing the same rule must not name different tiers.
+    """
+    from app.rules import check_gpa_trend, gpa_trend_status
+
+    series_by_student: dict[str, list[dict]] = {}
+    for row in json.loads((FIXTURES_DIR / "student_term_gpa.json").read_text()):
+        series_by_student.setdefault(row["student_id"], []).append(row)
+
+    tier_by_student = {}
+    for student_id, series in series_by_student.items():
+        series.sort(key=lambda row: row["term_index"])
+        if any(r["term_gpa"] is None or r["cumulative_gpa"] is None for r in series):
+            continue
+        if len(series) < 2:
+            continue
+        result = check_gpa_trend(series)
+        if not result.flagged:
+            continue
+        tier_by_student[student_id] = gpa_trend_status(
+            result,
+            term_gpa=series[-1]["term_gpa"],
+            cumulative_gpa=series[-1]["cumulative_gpa"],
+        )
+
+    # Pinned so a fixture edit that empties the population fails loudly here
+    # rather than making the comparisons below trivially true at zero.
+    assert tier_by_student == {
+        "stu-003": "urgent",
+        "stu-013": "watch",
+        "stu-015": "needs_attention",
+    }
+
+    summary = client.get("/api/academic-risk/profile").json()["trend_stage_summary"]
+    tiers = list(tier_by_student.values())
+    assert summary["watch_count"] == tiers.count("watch")
+    assert summary["needs_attention_count"] == tiers.count("needs_attention")
+    assert summary["urgent_count"] == tiers.count("urgent")
+
+    queue = {
+        row["student_id"]: row["status"]
+        for row in client.get("/api/overview/priority-queue").json()
+    }
+    for student_id, tier in tier_by_student.items():
+        assert queue[student_id] == tier, f"{student_id} differs from its queue row"
+
+
+# ---------------------------------------------------------------------------
 # Cycle 3 — student is Fahad Al-Ajmi with two separate risk indicators
 # ---------------------------------------------------------------------------
 

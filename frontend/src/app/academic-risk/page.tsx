@@ -57,13 +57,18 @@ interface RationaleAssessment {
   rationale: string;
 }
 
+/** The stage header's numbers under one lens: three counts and their worst-severity badge. */
+interface StageSummary {
+  health: StatusCode;
+  watch_count: number;
+  needs_attention_count: number;
+  urgent_count: number;
+}
+
 interface AcademicRiskProfile {
-  stage_summary: {
-    health: StatusCode;
-    watch_count: number;
-    needs_attention_count: number;
-    urgent_count: number;
-  };
+  stage_summary: StageSummary;
+  /** The same triple counted by trend tier — what the header shows in Trend mode (#70). */
+  trend_stage_summary: StageSummary;
   student: {
     id: string;
     name: string;
@@ -155,6 +160,7 @@ export default function AcademicRiskPage() {
 
   const {
     stage_summary,
+    trend_stage_summary,
     student,
     gpa_trend,
     cohort_slo_pattern,
@@ -165,21 +171,27 @@ export default function AcademicRiskPage() {
     workflow_items,
   } = data;
 
+  // The header speaks whichever lens the toggle is on: both triples arrive in
+  // the one payload, so the swap is a choice between them, never a recount (#70).
+  const summary = lens === "trend" ? trend_stage_summary : stage_summary;
+
   return (
     <main className="space-y-6 p-6">
       {/* Stage header */}
       <div className="flex items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-900">Academic Risk</h1>
-        <StatusBadge code={stage_summary.health} />
-        <div className="ml-auto flex gap-6 text-sm text-gray-600">
+        <StatusBadge code={summary.health} />
+        {/* tabular-nums so a count swapping lens keeps its glyph width and the
+            numbers change in place rather than nudging the row (#70). */}
+        <div className="ml-auto flex gap-6 text-sm text-gray-600 tabular-nums">
           <span>
-            Watch: <strong>{stage_summary.watch_count}</strong>
+            Watch: <strong>{summary.watch_count}</strong>
           </span>
           <span>
-            Needs Attention: <strong>{stage_summary.needs_attention_count}</strong>
+            Needs Attention: <strong>{summary.needs_attention_count}</strong>
           </span>
           <span>
-            Urgent: <strong>{stage_summary.urgent_count}</strong>
+            Urgent: <strong>{summary.urgent_count}</strong>
           </span>
         </div>
       </div>
