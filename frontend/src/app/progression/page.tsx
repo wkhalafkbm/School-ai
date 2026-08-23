@@ -6,6 +6,7 @@ import StreamedField from "@/components/StreamedField";
 import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import { StatusCode } from "@/lib/status";
 import ProgressionActions from "./ProgressionActions";
+import WeeklyCalendar from "./WeeklyCalendar";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -314,7 +315,10 @@ export default function ProgressionPage() {
       )}
 
       {/* AI graduation risk summary */}
-      <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+      <section
+        data-testid="graduation-risk-summary"
+        className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+      >
         <div className="mb-3 flex items-center gap-3">
           <h2 className="text-base font-semibold text-gray-900">
             Graduation Risk Summary
@@ -351,9 +355,15 @@ export default function ProgressionPage() {
         </ul>
       </section>
 
+      {/* Current-term weekly class schedule — fetches its own plan (#84) */}
+      <WeeklyCalendar />
+
       {/* Seeded plan update workflow item */}
       {plan_update_item && (
-        <section className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+        <section
+          data-testid="plan-update-item"
+          className="rounded-lg border border-amber-200 bg-amber-50 p-5"
+        >
           <h2 className="mb-2 text-base font-semibold text-gray-900">
             Graduation Plan Update
           </h2>

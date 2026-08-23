@@ -120,9 +120,38 @@ function renderResolvedPage(data: unknown = MOCK_PROFILE) {
   return result;
 }
 
+/** The plan the weekly calendar fetches for itself (#84). */
+const MOCK_PLAN = {
+  student_id: "stu-004",
+  student_name: "Noor Al-Hamad",
+  terms: [
+    {
+      term: "2024-Fall",
+      is_current: true,
+      source: "enrollment",
+      classes: [
+        {
+          course_code: "CS302",
+          course_name: "Operating Systems",
+          section_code: "CS302-01",
+          days: ["Sun", "Tue"],
+          start_time: "11:00",
+          end_time: "12:15",
+          room: "B107",
+          credits: 3,
+        },
+      ],
+    },
+  ],
+};
+
 beforeEach(() => {
   StubEventSource.instances = [];
   vi.stubGlobal("EventSource", StubEventSource);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => MOCK_PLAN })
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -394,5 +423,39 @@ describe("ProgressionPage", () => {
       expect(body.owner_role).toBe("academic advisor");
       expect(body.stage).toBe("progression");
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Issue #84 — the weekly calendar sits between the Graduation Risk Summary
+  // and the Graduation Plan Update panel, and fails on its own
+  // -------------------------------------------------------------------------
+
+  it("renders the weekly calendar below the risk summary and above the plan update", async () => {
+    const { container } = renderResolvedPage();
+    await screen.findByRole("table", { name: /weekly class schedule/i });
+
+    const riskEl = container.querySelector("[data-testid='graduation-risk-summary']");
+    const calendarEl = container.querySelector("[data-testid='weekly-calendar']");
+    const planEl = container.querySelector("[data-testid='plan-update-item']");
+    expect(riskEl).not.toBeNull();
+    expect(calendarEl).not.toBeNull();
+    expect(planEl).not.toBeNull();
+
+    const all = Array.from(container.querySelectorAll("*"));
+    expect(all.indexOf(riskEl!)).toBeLessThan(all.indexOf(calendarEl!));
+    expect(all.indexOf(calendarEl!)).toBeLessThan(all.indexOf(planEl!));
+  });
+
+  it("keeps the rest of the page intact when the calendar's endpoint fails", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+
+    renderResolvedPage();
+
+    expect(
+      await screen.findByText(/couldn't load the class schedule/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText("Noor Al-Hamad")).toBeInTheDocument();
+    expect(screen.getByText("Graduation Risk Summary")).toBeInTheDocument();
+    expect(screen.getByText("Graduation Plan Update")).toBeInTheDocument();
   });
 });
