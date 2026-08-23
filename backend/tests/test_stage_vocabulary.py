@@ -23,6 +23,7 @@ FRONTEND_SRC = REPO_ROOT / "frontend" / "src"
 WRITE_TOOLS_PATH = REPO_ROOT / "orchestrate" / "tools" / "write_tools.yaml"
 FRONTEND_STAGES_PATH = FRONTEND_SRC / "lib" / "stages.ts"
 FRONTEND_STATUS_PATH = FRONTEND_SRC / "lib" / "status.ts"
+E2E_API_SERVER_PATH = REPO_ROOT / "frontend" / "e2e" / "api-server.mjs"
 
 # Every way a stage value is spelled in this repo: a SQL filter, a column
 # alias in a SELECT, a dict/object literal, a Python keyword argument.
@@ -173,3 +174,30 @@ def test_every_retired_stage_has_a_replacement_in_the_vocabulary(retired, replac
     """The migration's mapping is only useful if its target is a real stage."""
     assert retired not in STAGES
     assert replacement in STAGES
+
+
+def test_the_e2e_mock_keys_journey_health_by_the_same_stages_the_map_reads():
+    """
+    The journey-health payload is keyed by stage, so a retired key leaves
+    `health[stage]` undefined and JourneyHealthMap throws while destructuring
+    its status — the Overview page 500s with a server-side exception.
+
+    The other guards here miss this shape twice over: `source_files()` never
+    walks `frontend/e2e/`, and these are bare object keys rather than the
+    `stage: "value"` literals STAGE_LITERAL_PATTERNS looks for.
+    """
+    expected = set(
+        ts_string_array(FRONTEND_STAGES_PATH.read_text(), "JOURNEY_HEALTH_STAGES")
+    )
+
+    source = E2E_API_SERVER_PATH.read_text()
+    body = re.search(
+        r'"/api/overview/journey-health":\s*\{(.*?)\n\s*\},', source, re.DOTALL
+    )
+    assert body, "journey-health route not found in the e2e mock"
+    mocked = set(re.findall(r"^\s+([a-z_]+):", body.group(1), re.MULTILINE))
+
+    assert mocked == expected, (
+        "the e2e mock's journey-health keys have drifted from the stages "
+        f"JourneyHealthMap reads: {sorted(mocked ^ expected)}"
+    )
