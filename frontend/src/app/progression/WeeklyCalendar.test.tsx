@@ -239,6 +239,31 @@ describe("WeeklyCalendar", () => {
     expect(long.height / short.height).toBeCloseTo(75 / 50, 5);
   });
 
+  // A block clips whatever will not fit its height, so a class too short to
+  // stack three lines has to say the same things in fewer of them. GEOMETRY_PLAN
+  // holds one of each: MATH101 runs 50 minutes, CS302 runs 75.
+
+  it("stacks a full-length class's time and room on their own lines", async () => {
+    await renderLoaded(GEOMETRY_PLAN);
+    const block = within(screen.getByTestId("day-column-Sun")).getByTestId(
+      "class-block-CS302"
+    );
+
+    expect(within(block).getByText("11:00–12:15")).toBeInTheDocument();
+    expect(within(block).getByText("B107")).toBeInTheDocument();
+  });
+
+  it("puts a short class's time and room on one line so neither is clipped", async () => {
+    await renderLoaded(GEOMETRY_PLAN);
+    const block = within(screen.getByTestId("day-column-Sun")).getByTestId(
+      "class-block-MATH101"
+    );
+
+    expect(within(block).getByText("09:00–09:50 · A201")).toBeInTheDocument();
+    // Still one line per fact would have meant a line of its own for the room.
+    expect(within(block).queryByText("A201")).not.toBeInTheDocument();
+  });
+
   it("offsets blocks on the same minutes-per-pixel scale it sizes them with", async () => {
     const { short, long } = await geometry();
 

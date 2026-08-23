@@ -69,16 +69,24 @@ function minutesFromDayStart(time: string): number {
 }
 
 /**
- * Where a class sits and how tall it is. Both axes read off the same
- * pixels-per-minute scale, so a block's height is its duration and its offset
- * is its start time.
+ * Course code, meeting time and room, stacked one per line, need this much
+ * height. A block shorter than this would clip its last line, so it says the
+ * same things on fewer lines instead.
+ */
+const STACKED_LINES_MIN_HEIGHT = 52;
+
+/**
+ * Where a class sits, how tall it is, and whether it has the height to stack
+ * its three facts. Both axes read off the same pixels-per-minute scale, so a
+ * block's height is its duration and its offset is its start time.
  */
 function blockGeometry(cls: ScheduledClass) {
   const start = minutesFromDayStart(cls.start_time);
   const end = minutesFromDayStart(cls.end_time);
+  const height = (end - start) * PX_PER_MINUTE;
   return {
-    top: `${start * PX_PER_MINUTE}px`,
-    height: `${(end - start) * PX_PER_MINUTE}px`,
+    style: { top: `${start * PX_PER_MINUTE}px`, height: `${height}px` },
+    stacked: height >= STACKED_LINES_MIN_HEIGHT,
   };
 }
 
@@ -268,27 +276,39 @@ export default function WeeklyCalendar() {
                 ))}
                 {shownTerm.classes
                   .filter((cls) => cls.days.includes(day.key))
-                  .map((cls) => (
-                    <div
-                      key={cls.section_code}
-                      data-testid={`class-block-${cls.course_code}`}
-                      data-term-kind={termKind}
-                      title={`${cls.course_code} ${cls.course_name} · ${cls.section_code}`}
-                      className={`absolute inset-x-1 overflow-hidden rounded px-1.5 py-1 leading-tight ${BLOCK_STYLE[termKind]}`}
-                      style={blockGeometry(cls)}
-                    >
-                      <p
-                        data-testid="class-code"
-                        className="text-xs font-semibold text-gray-900"
+                  .map((cls) => {
+                    const { style, stacked } = blockGeometry(cls);
+                    const when = `${cls.start_time}–${cls.end_time}`;
+                    return (
+                      <div
+                        key={cls.section_code}
+                        data-testid={`class-block-${cls.course_code}`}
+                        data-term-kind={termKind}
+                        title={`${cls.course_code} ${cls.course_name} · ${cls.section_code}`}
+                        className={`absolute inset-x-1 overflow-hidden rounded px-1.5 py-1 leading-tight ${BLOCK_STYLE[termKind]}`}
+                        style={style}
                       >
-                        {cls.course_code}
-                      </p>
-                      <p className="text-[11px] text-gray-600">
-                        {cls.start_time}–{cls.end_time}
-                      </p>
-                      <p className="text-[11px] text-gray-500">{cls.room}</p>
-                    </div>
-                  ))}
+                        <p
+                          data-testid="class-code"
+                          className="text-xs font-semibold text-gray-900"
+                        >
+                          {cls.course_code}
+                        </p>
+                        {stacked ? (
+                          <>
+                            <p className="text-[11px] text-gray-600">{when}</p>
+                            <p className="text-[11px] text-gray-500">
+                              {cls.room}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="truncate text-[11px] text-gray-600">
+                            {when} · {cls.room}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
               </td>
             ))}
           </tr>
