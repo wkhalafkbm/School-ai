@@ -15,12 +15,17 @@ const ROUTES = {
     graduation_delays_prevented: 1,
     faculty_overload_alerts: 1,
   },
+  // Keyed by JOURNEY_HEALTH_STAGES — the stages JourneyHealthMap iterates. A
+  // key it does not read leaves the status undefined and takes the Overview
+  // page down. These five are the #68 replacements for the retired
+  // onboarding / registration / academic_progress / graduation_planning /
+  // career spellings this payload used to carry.
   "/api/overview/journey-health": {
-    onboarding: "watch",
-    registration: "needs_attention",
-    academic_progress: "urgent",
-    graduation_planning: "urgent",
-    career: "on_track",
+    admissions: "watch",
+    enrollment: "needs_attention",
+    academic_risk: "urgent",
+    progression: "urgent",
+    career_alumni: "on_track",
   },
   "/api/overview/priority-queue": [
     {
