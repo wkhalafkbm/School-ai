@@ -302,6 +302,64 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     return base, resolvers
 
 
+def _build_graduation_plan(db: Session) -> dict:
+    """The student's plan as an ordered list of terms, each holding its classes.
+
+    Only the current term is backed by data that already exists — the student's
+    enrollments and the sections behind them. Later terms are projected and are
+    appended to `terms` as they are built, without changing this shape.
+    """
+    student_row = db.execute(
+        text("SELECT id, name FROM students WHERE id = :sid"),
+        {"sid": STUDENT_ID},
+    ).one()
+
+    class_rows = db.execute(
+        text("""
+            SELECT c.code AS course_code, c.name AS course_name, c.credits,
+                   ss.section_code, ss.days, ss.start_time, ss.end_time, ss.room
+            FROM enrollments e
+            JOIN courses c ON c.id = e.course_id
+            JOIN schedule_sections ss ON ss.id = e.section_id
+            WHERE e.student_id = :sid
+              AND e.semester = :sem
+              AND e.status = 'active'
+            ORDER BY ss.start_time, c.code
+        """),
+        {"sid": STUDENT_ID, "sem": CURRENT_SEMESTER},
+    ).fetchall()
+
+    current_term = {
+        "term": CURRENT_SEMESTER,
+        "is_current": True,
+        "source": "enrollment",
+        "classes": [
+            {
+                "course_code": row.course_code,
+                "course_name": row.course_name,
+                "section_code": row.section_code,
+                "days": list(row.days or []),
+                "start_time": row.start_time,
+                "end_time": row.end_time,
+                "room": row.room,
+                "credits": int(row.credits) if row.credits is not None else None,
+            }
+            for row in class_rows
+        ],
+    }
+
+    return {
+        "student_id": student_row.id,
+        "student_name": student_row.name,
+        "terms": [current_term],
+    }
+
+
+@router.get("/graduation-plan")
+def graduation_plan(db: Session = Depends(get_db)):
+    return _build_graduation_plan(db)
+
+
 @router.get("/profile")
 async def progression_profile(db: Session = Depends(get_db)):
     base, resolvers = _build_profile(db)

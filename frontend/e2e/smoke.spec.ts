@@ -137,6 +137,26 @@ test("Career & Alumni action button triggers approval modal", async ({ page }) =
 });
 
 // ---------------------------------------------------------------------------
+// Issue #84 — the weekly calendar renders the current term against its own
+// endpoint, independently of the profile stream
+// ---------------------------------------------------------------------------
+
+test("Progression page shows the current-term weekly calendar", async ({ page }) => {
+  await page.goto("/progression");
+
+  const calendar = page.getByRole("table", { name: /weekly class schedule/i });
+  await expect(calendar).toBeVisible();
+  await expect(page.getByText(/current term — 2024-Fall/i)).toBeVisible();
+  await expect(
+    calendar.getByRole("columnheader", { name: "Sunday" })
+  ).toBeVisible();
+  await expect(
+    calendar.getByRole("columnheader", { name: "Thursday" })
+  ).toBeVisible();
+  await expect(page.getByTestId("class-block-CS302").first()).toBeVisible();
+});
+
+// ---------------------------------------------------------------------------
 // Cycle 6 — no banned branding terms visible on any page
 // ---------------------------------------------------------------------------
 

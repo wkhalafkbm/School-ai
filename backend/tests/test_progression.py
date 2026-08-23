@@ -618,3 +618,66 @@ def test_progression_profile_stream_live_mode_field_event_carries_live_rationale
         "path": "graduation_risk_summary.rationale",
         "value": "Live agent: graduation on track with plan update.",
     }
+
+
+# ---------------------------------------------------------------------------
+# Issue #84 — GET /api/progression/graduation-plan
+#
+# The plan is an ordered list of terms, each holding the classes scheduled in
+# it. Only the current term is backed by data today: it is read off the
+# student's live enrollments and their sections, never hardcoded.
+# ---------------------------------------------------------------------------
+
+def test_graduation_plan_returns_200(client):
+    response = client.get("/api/progression/graduation-plan")
+    assert response.status_code == 200
+
+
+def test_graduation_plan_names_the_student_it_belongs_to(client):
+    plan = client.get("/api/progression/graduation-plan").json()
+    assert plan["student_id"] == "stu-004"
+    assert plan["student_name"] == "Noor Al-Hamad"
+
+
+def test_graduation_plan_is_an_ordered_list_of_terms(client):
+    plan = client.get("/api/progression/graduation-plan").json()
+    assert isinstance(plan["terms"], list)
+    assert len(plan["terms"]) >= 1
+
+
+def _current_term(client) -> dict:
+    plan = client.get("/api/progression/graduation-plan").json()
+    return next(term for term in plan["terms"] if term["is_current"])
+
+
+def test_graduation_plan_marks_exactly_one_term_as_current(client):
+    plan = client.get("/api/progression/graduation-plan").json()
+    current = [term for term in plan["terms"] if term["is_current"]]
+    assert len(current) == 1
+    assert current[0]["term"] == "2024-Fall"
+
+
+def test_current_term_holds_noors_active_enrolled_classes(client):
+    # Noor's three active 2024-Fall enrollments — enr-007/008/009. Her completed
+    # enrollments from earlier terms must not leak into the current term.
+    codes = {cls["course_code"] for cls in _current_term(client)["classes"]}
+    assert codes == {"CS301", "CS302", "CS401"}
+
+
+def test_current_term_classes_carry_their_section_meeting_details(client):
+    classes = {cls["course_code"]: cls for cls in _current_term(client)["classes"]}
+
+    # sec-005, the section behind Noor's CS302 enrollment.
+    cs302 = classes["CS302"]
+    assert cs302["course_name"] == "Operating Systems"
+    assert cs302["section_code"] == "CS302-01"
+    assert cs302["days"] == ["Sun", "Tue"]
+    assert cs302["start_time"] == "11:00"
+    assert cs302["end_time"] == "12:15"
+    assert cs302["room"] == "B107"
+    assert cs302["credits"] == 3
+
+
+def test_current_term_classes_are_ordered_by_start_time(client):
+    starts = [cls["start_time"] for cls in _current_term(client)["classes"]]
+    assert starts == sorted(starts)

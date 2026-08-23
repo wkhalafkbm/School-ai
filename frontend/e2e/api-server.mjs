@@ -386,6 +386,52 @@ const ROUTES = {
     },
   },
 
+  // The weekly calendar fetches its own plan (#84), separately from the
+  // progression profile stream above.
+  "/api/progression/graduation-plan": {
+    student_id: "stu-004",
+    student_name: "Noor Al-Hamad",
+    terms: [
+      {
+        term: "2024-Fall",
+        is_current: true,
+        source: "enrollment",
+        classes: [
+          {
+            course_code: "CS301",
+            course_name: "Algorithms",
+            section_code: "CS301-01",
+            days: ["Mon", "Wed"],
+            start_time: "09:00",
+            end_time: "10:15",
+            room: "B105",
+            credits: 3,
+          },
+          {
+            course_code: "CS302",
+            course_name: "Operating Systems",
+            section_code: "CS302-01",
+            days: ["Sun", "Tue"],
+            start_time: "11:00",
+            end_time: "12:15",
+            room: "B107",
+            credits: 3,
+          },
+          {
+            course_code: "CS401",
+            course_name: "Software Engineering",
+            section_code: "CS401-01",
+            days: ["Mon", "Wed"],
+            start_time: "13:00",
+            end_time: "14:15",
+            room: "B301",
+            credits: 3,
+          },
+        ],
+      },
+    ],
+  },
+
   "/api/career-alumni/profile": {
     stage_summary: {
       health: "opportunity",
