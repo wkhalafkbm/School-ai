@@ -26,7 +26,7 @@ ALL_TABLES = [
     "financial_aid_records", "administrative_holds", "graduation_requirements",
     "student_course_progress", "career_pathways", "alumni_mentors",
     "workflow_items", "slos", "slo_assessments", "cohort_slo_history",
-    "student_slo_results", "student_term_gpa",
+    "student_slo_results", "student_term_gpa", "academic_plan_courses",
 ]
 
 
@@ -166,6 +166,22 @@ def test_seed_rejects_term_gpa_row_for_unknown_student(engine, tmp_path):
     (tmp_path / "student_term_gpa.json").write_text(json.dumps(rows))
 
     with pytest.raises(SeedValidationError, match="student_id"):
+        seed(TEST_DATABASE_URL, tmp_path)
+
+
+def test_seed_rejects_plan_row_pointing_at_an_unknown_offering(engine, tmp_path):
+    """A plan row names the offering it would seat the student in; an offering
+    that does not exist has to be caught before the plan reaches the DB."""
+    from app.seed import seed, SeedValidationError
+
+    for f in FIXTURES_DIR.glob("*.json"):
+        (tmp_path / f.name).write_text(f.read_text())
+
+    rows = json.loads((tmp_path / "academic_plan_courses.json").read_text())
+    rows[0]["section_id"] = "sec_DOES_NOT_EXIST"
+    (tmp_path / "academic_plan_courses.json").write_text(json.dumps(rows))
+
+    with pytest.raises(SeedValidationError, match="section_id"):
         seed(TEST_DATABASE_URL, tmp_path)
 
 

@@ -302,12 +302,59 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     return base, resolvers
 
 
+def _scheduled_class(row) -> dict:
+    """A class as the calendar renders it — its course, and when its section meets."""
+    return {
+        "course_code": row.course_code,
+        "course_name": row.course_name,
+        "section_code": row.section_code,
+        "days": list(row.days or []),
+        "start_time": row.start_time,
+        "end_time": row.end_time,
+        "room": row.room,
+        "credits": int(row.credits) if row.credits is not None else None,
+    }
+
+
+def _planned_terms(db: Session) -> list[dict]:
+    """The recommended plan's terms — the schedule the student would take next.
+
+    These classes are seats the student has not taken yet, so they come from the
+    plan rows rather than from enrollments. Each row names an offering, and the
+    offering is what fixes the term the class runs in and when it meets.
+    """
+    rows = db.execute(
+        text("""
+            SELECT apc.term, apc.term_index,
+                   c.code AS course_code, c.name AS course_name, c.credits,
+                   ss.section_code, ss.days, ss.start_time, ss.end_time, ss.room
+            FROM academic_plan_courses apc
+            JOIN courses c ON c.id = apc.course_id
+            JOIN schedule_sections ss ON ss.id = apc.section_id
+            WHERE apc.student_id = :sid
+            ORDER BY apc.term_index, ss.start_time, c.code
+        """),
+        {"sid": STUDENT_ID},
+    ).fetchall()
+
+    terms: dict[str, dict] = {}
+    for row in rows:
+        term = terms.setdefault(
+            row.term,
+            {"term": row.term, "is_current": False, "source": "plan", "classes": []},
+        )
+        term["classes"].append(_scheduled_class(row))
+
+    return list(terms.values())
+
+
 def _build_graduation_plan(db: Session) -> dict:
     """The student's plan as an ordered list of terms, each holding its classes.
 
-    Only the current term is backed by data that already exists — the student's
-    enrollments and the sections behind them. Later terms are projected and are
-    appended to `terms` as they are built, without changing this shape.
+    The current term is read off the student's enrollments and the sections
+    behind them; the terms after it come from the recommended plan. Both are
+    served in the same term shape, so the calendar renders either without
+    needing to know which is which.
     """
     student_row = db.execute(
         text("SELECT id, name FROM students WHERE id = :sid"),
@@ -333,25 +380,13 @@ def _build_graduation_plan(db: Session) -> dict:
         "term": CURRENT_SEMESTER,
         "is_current": True,
         "source": "enrollment",
-        "classes": [
-            {
-                "course_code": row.course_code,
-                "course_name": row.course_name,
-                "section_code": row.section_code,
-                "days": list(row.days or []),
-                "start_time": row.start_time,
-                "end_time": row.end_time,
-                "room": row.room,
-                "credits": int(row.credits) if row.credits is not None else None,
-            }
-            for row in class_rows
-        ],
+        "classes": [_scheduled_class(row) for row in class_rows],
     }
 
     return {
         "student_id": student_row.id,
         "student_name": student_row.name,
-        "terms": [current_term],
+        "terms": [current_term, *_planned_terms(db)],
     }
 
 

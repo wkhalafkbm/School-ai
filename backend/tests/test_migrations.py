@@ -16,7 +16,7 @@ EXPECTED_TABLES = {
     "support_cases", "interventions", "graduation_requirements",
     "student_course_progress", "career_pathways", "alumni_mentors",
     "workflow_items", "slos", "slo_assessments", "cohort_slo_history",
-    "student_slo_results", "student_term_gpa",
+    "student_slo_results", "student_term_gpa", "academic_plan_courses",
 }
 
 

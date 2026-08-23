@@ -13,7 +13,7 @@ FIXTURE_TABLES = [
     "support_cases", "interventions", "graduation_requirements",
     "student_course_progress", "career_pathways", "alumni_mentors",
     "workflow_items", "slos", "slo_assessments", "cohort_slo_history",
-    "student_slo_results", "student_term_gpa",
+    "student_slo_results", "student_term_gpa", "academic_plan_courses",
 ]
 
 ZOOM_IN_STUDENTS = [
@@ -367,6 +367,113 @@ def test_every_fixture_record_has_data_source():
             )
             assert record["data_source"] in ("SIS", "LMS", "demo"), (
                 f"{table}.json record[{i}] has invalid data_source '{record['data_source']}'"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Issue #85 — a catalog entry is term-agnostic; its offerings carry the term
+#
+# The same course can run in more than one term. Repeating it in the catalog to
+# say so would split it into two ids and break the prerequisite graph, so the
+# term lives on the offering and the catalog entry stays term-free.
+# ---------------------------------------------------------------------------
+
+PLANNED_TERM = "2025-Spring"
+
+
+def offerings_by_course():
+    """schedule_sections grouped by the course they offer."""
+    grouped: dict[str, list[dict]] = {}
+    for section in load("schedule_sections"):
+        grouped.setdefault(section["course_id"], []).append(section)
+    return grouped
+
+
+def test_one_catalog_entry_per_course_code():
+    codes = [c["code"] for c in load("courses")]
+    duplicates = {code for code in codes if codes.count(code) > 1}
+    assert not duplicates, (
+        f"{sorted(duplicates)} appear more than once in the catalog — a course "
+        f"offered in a second term must reuse its entry, not gain a new id, or "
+        f"the prerequisite graph splits in two"
+    )
+
+
+def test_a_course_offered_in_two_terms_keeps_one_catalog_entry():
+    offerings = offerings_by_course()
+    courses = {c["id"]: c for c in load("courses")}
+
+    reoffered = {
+        course_id: sections
+        for course_id, sections in offerings.items()
+        if len({s["semester"] for s in sections}) > 1
+    }
+    assert reoffered, (
+        "no course is offered in more than one term, so nothing proves the "
+        "catalog can carry a course across terms without duplicating it"
+    )
+    for course_id, sections in reoffered.items():
+        assert course_id in courses, f"{course_id} has offerings but no catalog entry"
+        assert len({s["section_code"] for s in sections}) == len(sections), (
+            f"{courses[course_id]['code']} has offerings sharing a section code"
+        )
+
+
+def test_catalog_entries_added_for_the_planned_term_carry_no_term():
+    """The courses the recovery plan introduced exist only as future offerings,
+    so nothing about them should name a term but the offering itself."""
+    offerings = offerings_by_course()
+    courses = {c["id"]: c for c in load("courses")}
+
+    new_entries = [
+        courses[course_id]
+        for course_id, sections in offerings.items()
+        if {s["semester"] for s in sections} == {PLANNED_TERM}
+    ]
+    assert new_entries, f"no course is offered only in {PLANNED_TERM}"
+    for course in new_entries:
+        assert course["semester"] is None, (
+            f"{course['code']} carries semester {course['semester']!r}; the term "
+            f"a course runs in belongs to its offering, not its catalog entry"
+        )
+
+
+def test_every_planned_class_is_seated_in_an_offering_of_its_own_term():
+    sections = {s["id"]: s for s in load("schedule_sections")}
+    courses = {c["id"]: c for c in load("courses")}
+
+    plan = load("academic_plan_courses")
+    assert plan, "academic_plan_courses.json holds no planned classes"
+    for i, row in enumerate(plan):
+        section = sections[row["section_id"]]
+        assert section["semester"] == row["term"], (
+            f"academic_plan_courses[{i}] plans {courses[row['course_id']]['code']} "
+            f"in {row['term']} but section {section['id']} runs in "
+            f"{section['semester']}"
+        )
+        assert section["course_id"] == row["course_id"], (
+            f"academic_plan_courses[{i}] names course {row['course_id']} but "
+            f"section {section['id']} offers {section['course_id']}"
+        )
+
+
+def test_planned_term_classes_never_meet_at_the_same_time():
+    """A plan the student could not actually attend is not a plan."""
+    sections = {s["id"]: s for s in load("schedule_sections")}
+    by_day: dict[str, list[dict]] = {}
+    for row in load("academic_plan_courses"):
+        section = sections[row["section_id"]]
+        for day in section["days"]:
+            by_day.setdefault((row["student_id"], row["term"], day), []).append(section)
+
+    for (student_id, term, day), meetings in by_day.items():
+        ordered = sorted(meetings, key=lambda s: s["start_time"])
+        for earlier, later in zip(ordered, ordered[1:]):
+            assert earlier["end_time"] <= later["start_time"], (
+                f"{student_id}'s {term} plan double-books {day}: "
+                f"{earlier['section_code']} ({earlier['start_time']}–"
+                f"{earlier['end_time']}) overlaps {later['section_code']} "
+                f"({later['start_time']}–{later['end_time']})"
             )
 
 

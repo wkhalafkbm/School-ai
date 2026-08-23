@@ -1,0 +1,8 @@
+[
+  { "id": "apc-001", "student_id": "stu-004", "term": "2025-Spring", "term_index": 1, "course_id": "crs-008", "section_id": "sec-026", "data_source": "SIS" },
+  { "id": "apc-002", "student_id": "stu-004", "term": "2025-Spring", "term_index": 1, "course_id": "crs-021", "section_id": "sec-027", "data_source": "SIS" },
+  { "id": "apc-003", "student_id": "stu-004", "term": "2025-Spring", "term_index": 1, "course_id": "crs-023", "section_id": "sec-028", "data_source": "SIS" },
+  { "id": "apc-004", "student_id": "stu-004", "term": "2025-Spring", "term_index": 1, "course_id": "crs-026", "section_id": "sec-029", "data_source": "SIS" },
+  { "id": "apc-005", "student_id": "stu-004", "term": "2025-Spring", "term_index": 1, "course_id": "crs-027", "section_id": "sec-030", "data_source": "SIS" }
+]
+

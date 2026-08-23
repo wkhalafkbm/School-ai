@@ -102,6 +102,7 @@ class Student(Base):
     workflow_items = relationship("WorkflowItem", back_populates="student")
     student_slo_results = relationship("StudentSLOResult", back_populates="student")
     term_gpas = relationship("StudentTermGPA", back_populates="student")
+    academic_plan_courses = relationship("AcademicPlanCourse", back_populates="student")
 
 
 class Enrollment(Base):
@@ -446,3 +447,25 @@ class StudentTermGPA(Base):
     data_source = Column(SAEnum(DataSource), nullable=False)
 
     student = relationship("Student", back_populates="term_gpas")
+
+
+class AcademicPlanCourse(Base):
+    """One planned class in a student's recommended plan — a future term's schedule.
+
+    A planned class is a seat the student has not taken yet, so it hangs off the
+    offering rather than an enrollment: `section_id` fixes both the term it runs
+    in and when it meets. `term_index` orders the planned terms, which term
+    strings do not do as text.
+    """
+    __tablename__ = "academic_plan_courses"
+    id = Column(String, primary_key=True)
+    student_id = Column(String, ForeignKey("students.id"), nullable=False)
+    term = Column(String, nullable=False)
+    term_index = Column(Integer, nullable=False)
+    course_id = Column(String, ForeignKey("courses.id"), nullable=False)
+    section_id = Column(String, ForeignKey("schedule_sections.id"), nullable=False)
+    data_source = Column(SAEnum(DataSource), nullable=False)
+
+    student = relationship("Student", back_populates="academic_plan_courses")
+    course = relationship("Course")
+    section = relationship("ScheduleSection")
