@@ -750,6 +750,78 @@ def test_every_term_is_served_in_the_same_shape(client):
     )
 
 
+@pytest.fixture
+def a_second_planned_term(engine):
+    """A 2025-Fall term behind the plan's 2025-Spring one, for one test only.
+
+    The demo plan runs a single term ahead, so nothing in the fixtures makes the
+    endpoint group rows across more than one term. This adds a term with its own
+    offering and takes both away again, leaving the seeded plan as it found it.
+
+    2025-Fall sorts *before* 2025-Spring as text while running after it, so a
+    payload built on the term string rather than on `term_index` comes back in
+    the wrong order.
+    """
+    from sqlalchemy import text as sql
+
+    with engine.begin() as conn:
+        conn.execute(
+            sql("""
+                INSERT INTO schedule_sections
+                    (id, course_id, section_code, instructor_id, semester,
+                     days, start_time, end_time, room, capacity, enrolled, data_source)
+                VALUES
+                    ('sec-test-901', 'crs-024', 'CS490-02', 'fac-002', '2025-Fall',
+                     '["Mon", "Wed"]', '13:00', '14:15', 'B401', 20, 4, 'SIS')
+            """)
+        )
+        conn.execute(
+            sql("""
+                INSERT INTO academic_plan_courses
+                    (id, student_id, term, term_index, course_id, section_id, data_source)
+                VALUES
+                    ('apc-test-901', :sid, '2025-Fall', 2, 'crs-024', 'sec-test-901', 'SIS')
+            """),
+            {"sid": "stu-004"},
+        )
+
+    yield
+
+    with engine.begin() as conn:
+        conn.execute(sql("DELETE FROM academic_plan_courses WHERE id = 'apc-test-901'"))
+        conn.execute(sql("DELETE FROM schedule_sections WHERE id = 'sec-test-901'"))
+
+
+def test_plan_groups_its_rows_into_one_entry_per_term(client, a_second_planned_term):
+    plan = client.get("/api/progression/graduation-plan").json()
+
+    terms = [term["term"] for term in plan["terms"]]
+    assert terms == ["2024-Fall", "2025-Spring", "2025-Fall"], (
+        "planned terms are not grouped one-per-term in plan order"
+    )
+    assert len(terms) == len(set(terms)), f"a term is served more than once: {terms}"
+
+
+def test_each_planned_term_holds_only_its_own_classes(client, a_second_planned_term):
+    plan = client.get("/api/progression/graduation-plan").json()
+    by_term = {term["term"]: term for term in plan["terms"]}
+
+    spring = {cls["course_code"] for cls in by_term["2025-Spring"]["classes"]}
+    fall = {cls["course_code"] for cls in by_term["2025-Fall"]["classes"]}
+
+    assert spring == {"CS460", "MATH201", "CS480", "CS340", "CS370"}
+    assert fall == {"CS490"}
+
+
+def test_further_planned_terms_are_served_in_the_same_shape(client, a_second_planned_term):
+    plan = client.get("/api/progression/graduation-plan").json()
+
+    assert len({tuple(sorted(term)) for term in plan["terms"]}) == 1
+    for term in plan["terms"][1:]:
+        assert term["is_current"] is False
+        assert term["source"] == "plan"
+
+
 def test_planned_term_carries_enough_credits_to_start_closing_the_deficit(client):
     # Noor is 12 credits behind (scp-001). A normal 12-credit term holds the gap
     # steady; the recovery term has to be an overload to start closing it.
