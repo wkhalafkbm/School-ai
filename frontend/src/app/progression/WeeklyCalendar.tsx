@@ -178,10 +178,14 @@ export default function WeeklyCalendar() {
           <tr>
             {/* Time axis — one label per hour, on the grid's own scale. */}
             <td className="relative align-top" style={{ height: GRID_HEIGHT }}>
-              {HOURS.map((hour) => (
+              {HOURS.map((hour, index) => (
                 <span
                   key={hour}
-                  className="absolute right-2 -translate-y-1/2 text-[11px] text-gray-400"
+                  // Every label but the first is centred on its hour line; the
+                  // first would ride up into the header row, so it hangs below.
+                  className={`absolute right-2 text-[11px] text-gray-400 ${
+                    index === 0 ? "" : "-translate-y-1/2"
+                  }`}
                   style={{ top: `${(hour - DAY_START_HOUR) * PX_PER_HOUR}px` }}
                 >
                   {String(hour).padStart(2, "0")}:00
