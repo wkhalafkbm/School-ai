@@ -52,6 +52,16 @@ const HOURS = Array.from(
   (_, i) => DAY_START_HOUR + i
 );
 
+/**
+ * A term is either one the student is sitting in or one the plan proposes.
+ * Planned classes are seats nobody holds yet, so they read as an outline rather
+ * than as the solid blocks of a term already underway.
+ */
+const BLOCK_STYLE = {
+  current: "border border-blue-200 bg-blue-50",
+  planned: "border border-dashed border-amber-300 bg-amber-50/60",
+} as const;
+
 /** "11:00" → minutes since the top of the grid. */
 function minutesFromDayStart(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
@@ -83,8 +93,34 @@ function Panel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** One end of the term switcher — an arrow that walks the plan a term at a time. */
+function TermStep({
+  label,
+  glyph,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  glyph: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="rounded border border-gray-200 px-2 text-sm leading-6 text-gray-600 hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
+    >
+      {glyph}
+    </button>
+  );
+}
+
 /**
- * The featured student's current-term class schedule as a Sunday–Thursday week.
+ * The featured student's class schedule as a Sunday–Thursday week, a term at a
+ * time.
  *
  * It fetches its own plan rather than riding the profile stream, so a slow or
  * broken schedule endpoint costs this panel and nothing else on the page.
@@ -92,6 +128,9 @@ function Panel({ children }: { children: React.ReactNode }) {
 export default function WeeklyCalendar() {
   const [plan, setPlan] = useState<GraduationPlan | null>(null);
   const [failed, setFailed] = useState(false);
+  // Which term of the plan the grid is showing. The plan opens on the term the
+  // student is in now; stepping forward walks the planned terms behind it.
+  const [termIndex, setTermIndex] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,7 +141,10 @@ export default function WeeklyCalendar() {
         return res.json();
       })
       .then((body: GraduationPlan) => {
-        if (!cancelled) setPlan(body);
+        if (cancelled) return;
+        setPlan(body);
+        const current = body.terms.findIndex((term) => term.is_current);
+        setTermIndex(current === -1 ? 0 : current);
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -131,9 +173,9 @@ export default function WeeklyCalendar() {
     );
   }
 
-  const currentTerm = plan.terms.find((term) => term.is_current);
+  const shownTerm = plan.terms[termIndex];
 
-  if (!currentTerm) {
+  if (!shownTerm) {
     return (
       <Panel>
         <h2 className="mb-2 text-base font-semibold text-gray-900">
@@ -146,13 +188,30 @@ export default function WeeklyCalendar() {
     );
   }
 
+  const termKind = shownTerm.is_current ? "current" : "planned";
+
   return (
     <Panel>
-      <div className="mb-4 flex items-baseline gap-3">
+      <div className="mb-4 flex items-center gap-3">
         <h2 className="text-base font-semibold text-gray-900">Class Schedule</h2>
-        <span className="text-xs text-gray-500">
-          Current term — {currentTerm.term}
-        </span>
+        <div className="flex items-center gap-2">
+          <TermStep
+            label="Previous term"
+            glyph="‹"
+            disabled={termIndex === 0}
+            onClick={() => setTermIndex(termIndex - 1)}
+          />
+          <span className="text-xs text-gray-500">
+            {termKind === "current" ? "Current term" : "Planned term"} —{" "}
+            {shownTerm.term}
+          </span>
+          <TermStep
+            label="Next term"
+            glyph="›"
+            disabled={termIndex === plan.terms.length - 1}
+            onClick={() => setTermIndex(termIndex + 1)}
+          />
+        </div>
       </div>
       <table
         aria-label="Weekly class schedule"
@@ -207,14 +266,15 @@ export default function WeeklyCalendar() {
                     style={{ top: `${(hour - DAY_START_HOUR) * PX_PER_HOUR}px` }}
                   />
                 ))}
-                {currentTerm.classes
+                {shownTerm.classes
                   .filter((cls) => cls.days.includes(day.key))
                   .map((cls) => (
                     <div
                       key={cls.section_code}
                       data-testid={`class-block-${cls.course_code}`}
+                      data-term-kind={termKind}
                       title={`${cls.course_code} ${cls.course_name} · ${cls.section_code}`}
-                      className="absolute inset-x-1 overflow-hidden rounded border border-blue-200 bg-blue-50 px-1.5 py-1 leading-tight"
+                      className={`absolute inset-x-1 overflow-hidden rounded px-1.5 py-1 leading-tight ${BLOCK_STYLE[termKind]}`}
                       style={blockGeometry(cls)}
                     >
                       <p

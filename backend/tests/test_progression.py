@@ -681,3 +681,77 @@ def test_current_term_classes_carry_their_section_meeting_details(client):
 def test_current_term_classes_are_ordered_by_start_time(client):
     starts = [cls["start_time"] for cls in _current_term(client)["classes"]]
     assert starts == sorted(starts)
+
+
+# ---------------------------------------------------------------------------
+# Issue #85 — the next planned term
+#
+# Stepping past the current term shows the first term of the recommended
+# recovery plan. Those classes come from seeded plan rows, not enrollments, and
+# ride the same term shape the calendar already renders.
+# ---------------------------------------------------------------------------
+
+def test_plan_carries_a_planned_term_after_the_current_one(client):
+    plan = client.get("/api/progression/graduation-plan").json()
+    assert [term["term"] for term in plan["terms"]] == ["2024-Fall", "2025-Spring"]
+
+
+def test_planned_term_is_not_the_current_term_and_names_its_source(client):
+    plan = client.get("/api/progression/graduation-plan").json()
+    planned = plan["terms"][1]
+    assert planned["is_current"] is False
+    assert planned["source"] == "plan"
+
+
+def _planned_term(client) -> dict:
+    plan = client.get("/api/progression/graduation-plan").json()
+    return next(term for term in plan["terms"] if not term["is_current"])
+
+
+def test_planned_classes_come_from_the_2025_spring_offerings(client):
+    codes = {cls["course_code"] for cls in _planned_term(client)["classes"]}
+    assert codes == {"CS460", "MATH201", "CS480", "CS340", "CS370"}
+
+
+def test_planned_classes_carry_their_offerings_meeting_details(client):
+    classes = {cls["course_code"]: cls for cls in _planned_term(client)["classes"]}
+
+    # sec-026 — the 2025-Spring offering of CS460, a different section of the
+    # same catalog course the 2024-Fall CS460-01 offering runs.
+    cs460 = classes["CS460"]
+    assert cs460["course_name"] == "Computer Networks"
+    assert cs460["section_code"] == "CS460-02"
+    assert cs460["days"] == ["Sun", "Tue"]
+    assert cs460["start_time"] == "09:00"
+    assert cs460["end_time"] == "10:15"
+    assert cs460["room"] == "C101"
+    assert cs460["credits"] == 3
+
+
+def test_planned_classes_are_ordered_by_start_time(client):
+    starts = [cls["start_time"] for cls in _planned_term(client)["classes"]]
+    assert starts == sorted(starts)
+
+
+def test_every_term_is_served_in_the_same_shape(client):
+    """The calendar renders whichever term it is handed, so a planned term and
+    an enrolled one have to be the same object with different values in it —
+    only `is_current` and `source` say which is which."""
+    plan = client.get("/api/progression/graduation-plan").json()
+
+    term_shapes = {tuple(sorted(term)) for term in plan["terms"]}
+    assert len(term_shapes) == 1, f"terms are served in {len(term_shapes)} shapes: {term_shapes}"
+
+    class_shapes = {
+        tuple(sorted(cls)) for term in plan["terms"] for cls in term["classes"]
+    }
+    assert len(class_shapes) == 1, (
+        f"classes are served in {len(class_shapes)} shapes: {class_shapes}"
+    )
+
+
+def test_planned_term_carries_enough_credits_to_start_closing_the_deficit(client):
+    # Noor is 12 credits behind (scp-001). A normal 12-credit term holds the gap
+    # steady; the recovery term has to be an overload to start closing it.
+    credits = sum(cls["credits"] for cls in _planned_term(client)["classes"])
+    assert credits > 12

@@ -157,6 +157,27 @@ test("Progression page shows the current-term weekly calendar", async ({ page })
 });
 
 // ---------------------------------------------------------------------------
+// Issue #85 — stepping forward shows the first term of the recommended plan,
+// on the same grid, marked as planned rather than enrolled
+// ---------------------------------------------------------------------------
+
+test("Progression page steps the calendar to the next planned term", async ({
+  page,
+}) => {
+  await page.goto("/progression");
+
+  await expect(page.getByText(/current term — 2024-Fall/i)).toBeVisible();
+
+  await page.getByRole("button", { name: /next term/i }).click();
+
+  await expect(page.getByText(/planned term — 2025-Spring/i)).toBeVisible();
+  const planned = page.getByTestId("class-block-CS460").first();
+  await expect(planned).toBeVisible();
+  await expect(planned).toHaveAttribute("data-term-kind", "planned");
+  await expect(page.getByTestId("class-block-CS302")).toHaveCount(0);
+});
+
+// ---------------------------------------------------------------------------
 // Cycle 6 — no banned branding terms visible on any page
 // ---------------------------------------------------------------------------
 

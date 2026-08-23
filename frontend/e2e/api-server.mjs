@@ -434,6 +434,36 @@ const ROUTES = {
           },
         ],
       },
+      // The first term of the recommended recovery plan (#85). Same term shape
+      // as the current one — the calendar renders either without being told
+      // which is which; only `is_current` and `source` set them apart.
+      {
+        term: "2025-Spring",
+        is_current: false,
+        source: "plan",
+        classes: [
+          {
+            course_code: "CS460",
+            course_name: "Computer Networks",
+            section_code: "CS460-02",
+            days: ["Sun", "Tue"],
+            start_time: "09:00",
+            end_time: "10:15",
+            room: "C101",
+            credits: 3,
+          },
+          {
+            course_code: "CS340",
+            course_name: "Web Application Development",
+            section_code: "CS340-01",
+            days: ["Mon", "Wed"],
+            start_time: "11:00",
+            end_time: "12:15",
+            room: "B203",
+            credits: 3,
+          },
+        ],
+      },
     ],
   },
 

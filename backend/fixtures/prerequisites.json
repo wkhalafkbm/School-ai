@@ -14,5 +14,7 @@
   { "id": "pre-013", "course_id": "crs-023", "prerequisite_course_id": "crs-006", "min_grade": "C", "data_source": "SIS" },
   { "id": "pre-014", "course_id": "crs-024", "prerequisite_course_id": "crs-023", "min_grade": "C", "data_source": "SIS" },
   { "id": "pre-015", "course_id": "crs-025", "prerequisite_course_id": "crs-009", "min_grade": "C", "data_source": "SIS" },
-  { "id": "pre-016", "course_id": "crs-014", "prerequisite_course_id": "crs-013", "min_grade": "D", "data_source": "SIS" }
+  { "id": "pre-016", "course_id": "crs-014", "prerequisite_course_id": "crs-013", "min_grade": "D", "data_source": "SIS" },
+  { "id": "pre-017", "course_id": "crs-026", "prerequisite_course_id": "crs-002", "min_grade": "D", "data_source": "SIS" },
+  { "id": "pre-018", "course_id": "crs-027", "prerequisite_course_id": "crs-001", "min_grade": "D", "data_source": "SIS" }
 ]

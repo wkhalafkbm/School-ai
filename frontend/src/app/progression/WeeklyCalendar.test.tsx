@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import WeeklyCalendar from "./WeeklyCalendar";
 
 /** A plan shaped like /api/progression/graduation-plan serves it. */
@@ -35,6 +36,40 @@ const MOCK_PLAN = {
       ],
     },
   ],
+};
+
+/** The plan with the first term of the recommended recovery plan behind it (#85). */
+const PLANNED_TERM = {
+  term: "2025-Spring",
+  is_current: false,
+  source: "plan",
+  classes: [
+    {
+      course_code: "CS460",
+      course_name: "Computer Networks",
+      section_code: "CS460-02",
+      days: ["Sun", "Tue"],
+      start_time: "09:00",
+      end_time: "10:15",
+      room: "C101",
+      credits: 3,
+    },
+    {
+      course_code: "CS340",
+      course_name: "Web Application Development",
+      section_code: "CS340-01",
+      days: ["Mon", "Wed"],
+      start_time: "11:00",
+      end_time: "12:15",
+      room: "B203",
+      credits: 3,
+    },
+  ],
+};
+
+const MULTI_TERM_PLAN = {
+  ...MOCK_PLAN,
+  terms: [...MOCK_PLAN.terms, PLANNED_TERM],
 };
 
 /** Resolve the fetch this render kicks off with `plan`, then settle the DOM. */
@@ -241,6 +276,105 @@ describe("WeeklyCalendar", () => {
     expect(
       await screen.findByText(/couldn't load the class schedule/i)
     ).toBeInTheDocument();
+  });
+
+  // -------------------------------------------------------------------------
+  // Cycle 4 (#85) — the switcher steps between the terms the plan carries,
+  // opening on the one the student is in now
+  // -------------------------------------------------------------------------
+
+  const nextButton = () => screen.getByRole("button", { name: /next term/i });
+  const previousButton = () =>
+    screen.getByRole("button", { name: /previous term/i });
+
+  /** The courses on the grid right now — one entry each, however many days
+   *  they meet on — whichever term is showing. */
+  const shownCodes = () => [
+    ...new Set(screen.getAllByTestId("class-code").map((n) => n.textContent)),
+  ].sort();
+
+  it("opens on the current term", async () => {
+    await renderLoaded(MULTI_TERM_PLAN);
+
+    expect(screen.getByText(/2024-Fall/)).toBeInTheDocument();
+    expect(shownCodes()).toEqual(["CS301", "CS302"]);
+  });
+
+  it("steps forward to the next planned term", async () => {
+    await renderLoaded(MULTI_TERM_PLAN);
+
+    await userEvent.click(nextButton());
+
+    expect(screen.getByText(/2025-Spring/)).toBeInTheDocument();
+    expect(shownCodes()).toEqual(["CS340", "CS460"]);
+  });
+
+  it("steps back to the term it came from", async () => {
+    await renderLoaded(MULTI_TERM_PLAN);
+
+    await userEvent.click(nextButton());
+    await userEvent.click(previousButton());
+
+    expect(screen.getByText(/2024-Fall/)).toBeInTheDocument();
+    expect(shownCodes()).toEqual(["CS301", "CS302"]);
+  });
+
+  it("cannot step past either end of the plan", async () => {
+    await renderLoaded(MULTI_TERM_PLAN);
+
+    expect(previousButton()).toBeDisabled();
+
+    await userEvent.click(nextButton());
+
+    expect(nextButton()).toBeDisabled();
+    expect(previousButton()).toBeEnabled();
+  });
+
+  it("offers no way to step when the plan holds a single term", async () => {
+    await renderLoaded();
+
+    expect(nextButton()).toBeDisabled();
+    expect(previousButton()).toBeDisabled();
+  });
+
+  // -------------------------------------------------------------------------
+  // Cycle 5 (#85) — a planned term reads as planned: it says so, and its
+  // classes do not look like classes the student is actually sitting in
+  // -------------------------------------------------------------------------
+
+  it("says which kind of term the grid is showing", async () => {
+    await renderLoaded(MULTI_TERM_PLAN);
+
+    expect(screen.getByText(/current term/i)).toBeInTheDocument();
+
+    await userEvent.click(nextButton());
+
+    expect(screen.getByText(/planned term/i)).toBeInTheDocument();
+    expect(screen.queryByText(/current term/i)).not.toBeInTheDocument();
+  });
+
+  /** A class holds a block per day it meets on; they are styled alike. */
+  const aBlockFor = (code: string) =>
+    screen.getAllByTestId(`class-block-${code}`)[0];
+
+  it("marks blocks with the kind of term they belong to", async () => {
+    await renderLoaded(MULTI_TERM_PLAN);
+
+    expect(aBlockFor("CS301")).toHaveAttribute("data-term-kind", "current");
+
+    await userEvent.click(nextButton());
+
+    expect(aBlockFor("CS340")).toHaveAttribute("data-term-kind", "planned");
+  });
+
+  it("renders planned classes differently from enrolled ones", async () => {
+    await renderLoaded(MULTI_TERM_PLAN);
+    const enrolled = aBlockFor("CS301").className;
+
+    await userEvent.click(nextButton());
+    const planned = aBlockFor("CS340").className;
+
+    expect(planned).not.toEqual(enrolled);
   });
 
   it("reports an empty schedule rather than an error when the plan has no current term", async () => {
