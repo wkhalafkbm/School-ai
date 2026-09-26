@@ -213,7 +213,10 @@ def test_routing_the_flag_files_a_pending_item_the_profile_reports_back(client, 
         "status": "pending",
         "created_date": flag_after["routed_item"]["created_date"],
     }
-    assert profile["stage_summary"]["health"] == "watch"
+    # Routing settles the moderation signal at "watch", but the header badge is
+    # the more severe of that and the attainment signal (#97): with three of
+    # four PLOs below target it stays at needs_attention.
+    assert profile["stage_summary"]["health"] == "needs_attention"
     assert profile["stage_summary"]["open_flag_count"] == 0
 
     listed = [i for i in client.get("/api/workflows").json() if i["id"] == item_id]
@@ -237,3 +240,134 @@ def test_profile_stream_serves_the_flags_in_the_base_event(client):
     base = json.loads(events[0].split("data: ", 1)[1])
     assert [f["course_code"] for f in base["moderation_variance_flags"]] == ["CS101"]
     assert events[-1].startswith("event: done\n")
+
+
+# ---------------------------------------------------------------------------
+# Issue #97 — the SLO → CLO → PLO attainment chain for Computer Science.
+#
+# Expected values are worked by hand from the fixtures. Each SLO's rate is its
+# latest course-level assessment (2024-Fall throughout); a course's roll-up
+# (the CLO level) is the mean of the SLOs it contributes to a PLO; a PLO's
+# attainment is the mean of its course roll-ups, skipping courses with no
+# assessed SLO. Target is 70%.
+#
+#   PLO1  CS101-SLO1 .733 | CS201-SLO1 .571 | CS301-SLO1 .680 | CS401-SLO1 —      → .661
+#   PLO2  CS101 (.600, .833 → .7165) | CS201-SLO2 .500 | CS301-SLO2 —              → .608
+#   PLO3  CS201-SLO3 .643 | CS302-SLO1 .410 (cohort history only) | CS401-SLO1 —   → .5265
+#   PLO4  CS450-SLO1 .800 | CS301-SLO1 .680                                        → .740
+# ---------------------------------------------------------------------------
+
+def attainment(client) -> dict:
+    response = client.get(PROFILE_URL)
+    assert response.status_code == 200
+    return response.json()["program_attainment"]
+
+
+def plo(client, code: str) -> dict:
+    [match] = [p for p in attainment(client)["plos"] if p["code"] == code]
+    return match
+
+
+def test_computer_science_plo_attainment_is_measured_against_a_seventy_percent_target(client):
+    program = attainment(client)
+
+    assert program["program_id"] == "prog-001"
+    assert program["program_name"] == "Computer Science"
+    assert program["attainment_target"] == 0.70
+    assert program["latest_semester"] == "2024-Fall"
+
+    by_code = {p["code"]: p for p in program["plos"]}
+    assert list(by_code) == ["PLO1", "PLO2", "PLO3", "PLO4"]
+    assert by_code["PLO1"]["attainment"] == pytest.approx(0.661, abs=0.0006)
+    assert by_code["PLO2"]["attainment"] == pytest.approx(0.608, abs=0.0006)
+    assert by_code["PLO3"]["attainment"] == pytest.approx(0.5265, abs=0.0006)
+    assert by_code["PLO4"]["attainment"] == pytest.approx(0.740, abs=0.0006)
+    assert {code: p["on_target"] for code, p in by_code.items()} == {
+        "PLO1": False, "PLO2": False, "PLO3": False, "PLO4": True,
+    }
+    assert program["plos_below_target"] == 3
+
+
+def test_a_plo_expands_to_the_courses_feeding_it_and_their_slos(client):
+    """PLO1 is fed by four courses; CS101 contributes one SLO whose latest
+    assessment is 2024-Fall with three semesters of history behind it."""
+    plo1 = plo(client, "PLO1")
+
+    assert plo1["title"] == "Program and build software"
+    assert [c["course_code"] for c in plo1["courses"]] == ["CS101", "CS201", "CS301", "CS401"]
+    assert plo1["slo_count"] == 4
+    assert plo1["assessed_slo_count"] == 3
+
+    [cs101] = [c for c in plo1["courses"] if c["course_code"] == "CS101"]
+    assert cs101["course_name"] == "Introduction to Computer Science"
+    assert cs101["attainment"] == 0.733
+    assert cs101["on_target"] is True
+    [slo] = cs101["slos"]
+    assert slo["slo_code"] == "CS101-SLO1"
+    assert slo["description"].startswith("Students will be able to write basic Python")
+    assert slo["proficiency_rate"] == 0.733
+    assert slo["on_target"] is True
+    assert slo["last_assessed_semester"] == "2024-Fall"
+    assert slo["assessed_students"] == 30
+    assert slo["history"] == [
+        {"semester": "2023-Fall", "proficiency_rate": 0.688},
+        {"semester": "2024-Spring", "proficiency_rate": 0.714},
+        {"semester": "2024-Fall", "proficiency_rate": 0.733},
+    ]
+
+
+def test_the_course_rollup_is_the_mean_of_the_slos_it_contributes(client):
+    """CS101 feeds PLO2 with two SLOs, 60.0% and 83.3%: the CLO level is their
+    mean, 71.65%, and that sits on target even though one SLO does not."""
+    [cs101] = [c for c in plo(client, "PLO2")["courses"] if c["course_code"] == "CS101"]
+
+    assert [s["slo_code"] for s in cs101["slos"]] == ["CS101-SLO2", "CS101-SLO3"]
+    assert [s["on_target"] for s in cs101["slos"]] == [False, True]
+    assert cs101["attainment"] == pytest.approx(0.7165, abs=0.0006)
+    assert cs101["on_target"] is True
+
+
+def test_an_unassessed_slo_is_listed_but_carries_no_rate(client):
+    """CS401-SLO1 has never been assessed: the chain shows the gap instead of
+    inventing a number, and the course is left out of the PLO mean."""
+    [cs401] = [c for c in plo(client, "PLO1")["courses"] if c["course_code"] == "CS401"]
+
+    assert cs401["attainment"] is None
+    assert cs401["on_target"] is None
+    [slo] = cs401["slos"]
+    assert slo["slo_code"] == "CS401-SLO1"
+    assert slo["proficiency_rate"] is None
+    assert slo["last_assessed_semester"] is None
+    assert slo["history"] == []
+
+
+def test_a_semester_only_in_the_cohort_history_still_counts(client):
+    """CS302-SLO1 was never written to the assessment table; its 2024-Fall
+    cohort history supplies the rate the chain uses."""
+    [cs302] = [c for c in plo(client, "PLO3")["courses"] if c["course_code"] == "CS302"]
+
+    [slo] = cs302["slos"]
+    assert slo["proficiency_rate"] == 0.41
+    assert slo["last_assessed_semester"] == "2024-Fall"
+    assert slo["source"] == "cohort_history"
+    assert cs302["attainment"] == 0.41
+    assert cs302["on_target"] is False
+
+
+def test_stage_summary_counts_the_plos_below_target(client):
+    summary = client.get(PROFILE_URL).json()["stage_summary"]
+
+    assert summary["plo_count"] == 4
+    assert summary["plos_below_target"] == 3
+    assert summary["attainment_target"] == 0.70
+    assert summary["health"] == "needs_attention"
+
+
+def test_profile_stream_serves_the_attainment_chain_in_the_base_event(client):
+    import json
+
+    with client.stream("GET", f"{PROFILE_URL}/stream") as response:
+        body = "".join(response.iter_text())
+
+    base = json.loads(body.split("\n\n")[0].split("data: ", 1)[1])
+    assert [p["code"] for p in base["program_attainment"]["plos"]] == ["PLO1", "PLO2", "PLO3", "PLO4"]

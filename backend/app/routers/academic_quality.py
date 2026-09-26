@@ -10,7 +10,10 @@ moderation. Routing writes a workflow item under this stage; the profile
 reports that item back against the flag so the page can show where the
 Measure → Diagnose → Moderate → Validate → Act → Re-measure workflow stands.
 
-The SLO → CLO → PLO attainment chain (#97) lands in this same profile.
+Issue #97 adds the upward half of the deck's evidence chain: Assessment →
+SLO → CLO → PLO → program effectiveness, for the program configured in
+``config/program_learning_outcomes.json``. The arithmetic lives in
+``app.outcomes``; this module only fetches the rows it needs.
 """
 
 import asyncio
@@ -22,8 +25,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.outcomes import compute_attainment, load_program_outcomes
 from app.stages import Stage
-from app.status import StatusCode
+from app.status import StatusCode, status_meta
 from app.streaming import ResolverFn, set_nested, stream_profile
 
 router = APIRouter(prefix="/api/academic-quality", tags=["academic-quality"])
@@ -143,7 +147,62 @@ def moderation_variance_flags(db: Session) -> list[dict]:
     return flags
 
 
-def _health(flags: list[dict]) -> str:
+def _program_slos(db: Session, program_id: str) -> list[dict]:
+    rows = db.execute(
+        text("""
+            SELECT sl.id AS slo_id, sl.code AS slo_code, sl.description,
+                   c.id AS course_id, c.code AS course_code, c.name AS course_name
+            FROM slos sl
+            JOIN courses c ON c.id = sl.course_id
+            WHERE c.program_id = :program_id
+            ORDER BY c.code, sl.code
+        """),
+        {"program_id": program_id},
+    ).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+def _program_assessments(db: Session, program_id: str) -> list[dict]:
+    """
+    Course-level proficiency per SLO per semester. Section-level rows never
+    take part (they are the moderation flag's evidence, not the chain's); the
+    cohort SLO history fills in any semester the assessment table lacks.
+    """
+    rows = db.execute(
+        text("""
+            SELECT a.slo_id, a.semester, a.proficiency_rate, a.assessed_students,
+                   'assessment' AS source
+            FROM slo_assessments a
+            JOIN slos sl ON sl.id = a.slo_id
+            JOIN courses c ON c.id = sl.course_id
+            WHERE c.program_id = :program_id AND a.section_id IS NULL
+            UNION ALL
+            SELECT h.slo_id, h.semester, h.proficiency_rate, h.cohort_size,
+                   'cohort_history' AS source
+            FROM cohort_slo_history h
+            JOIN slos sl ON sl.id = h.slo_id
+            JOIN courses c ON c.id = sl.course_id
+            WHERE c.program_id = :program_id
+              AND NOT EXISTS (
+                  SELECT 1 FROM slo_assessments a
+                  WHERE a.slo_id = h.slo_id AND a.semester = h.semester
+                    AND a.section_id IS NULL
+              )
+        """),
+        {"program_id": program_id},
+    ).fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+def program_attainment(db: Session) -> dict:
+    outcomes = load_program_outcomes()
+    program_id = outcomes["program_id"]
+    return compute_attainment(
+        outcomes, _program_slos(db, program_id), _program_assessments(db, program_id)
+    )
+
+
+def _moderation_health(flags: list[dict]) -> StatusCode:
     if not flags:
         return StatusCode.on_track
     if any(flag["routed_item"] is None for flag in flags):
@@ -151,14 +210,36 @@ def _health(flags: list[dict]) -> str:
     return StatusCode.watch
 
 
+def _attainment_health(plos_below_target: int) -> StatusCode:
+    if plos_below_target == 0:
+        return StatusCode.on_track
+    if plos_below_target == 1:
+        return StatusCode.watch
+    return StatusCode.needs_attention
+
+
+def _health(flags: list[dict], plos_below_target: int) -> StatusCode:
+    """The header badge: whichever of the two signals is more severe."""
+    return max(
+        _moderation_health(flags),
+        _attainment_health(plos_below_target),
+        key=lambda code: status_meta[code]["severity_rank"],
+    )
+
+
 def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     flags = moderation_variance_flags(db)
+    attainment = program_attainment(db)
     base = {
         "stage_summary": {
-            "health": _health(flags),
+            "health": _health(flags, attainment["plos_below_target"]),
             "open_flag_count": sum(1 for f in flags if f["routed_item"] is None),
             "routed_flag_count": sum(1 for f in flags if f["routed_item"] is not None),
+            "plo_count": len(attainment["plos"]),
+            "plos_below_target": attainment["plos_below_target"],
+            "attainment_target": attainment["attainment_target"],
         },
+        "program_attainment": attainment,
         "moderation_variance_flags": flags,
     }
     resolvers: dict[str, ResolverFn] = {}

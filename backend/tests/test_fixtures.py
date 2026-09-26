@@ -555,3 +555,64 @@ def test_two_sections_of_one_cs_course_assess_the_same_slo_far_apart():
     assert variance_pairs, (
         "no pair of section-level rows reports roughly 91% and 54% proficient"
     )
+
+
+# ---------------------------------------------------------------------------
+# Issue #97 — the SLO → CLO → PLO attainment chain. Program Learning Outcomes
+# for Computer Science live in a config file the backend loads; every Computer
+# Science SLO has to feed at least one PLO or the chain has a hole in it.
+# ---------------------------------------------------------------------------
+
+def cs_slo_codes() -> set[str]:
+    cs_program_ids = {p["id"] for p in load("programs") if p["name"] == "Computer Science"}
+    cs_course_ids = {c["id"] for c in load("courses") if c["program_id"] in cs_program_ids}
+    return {s["code"] for s in load("slos") if s["course_id"] in cs_course_ids}
+
+
+def test_computer_science_has_three_or_four_plos_with_a_seventy_percent_target():
+    from app.outcomes import load_program_outcomes
+
+    outcomes = load_program_outcomes()
+
+    assert outcomes["program_id"] == "prog-001"
+    assert outcomes["program_name"] == "Computer Science"
+    assert outcomes["attainment_target"] == 0.70
+    assert 3 <= len(outcomes["plos"]) <= 4
+    codes = [plo["code"] for plo in outcomes["plos"]]
+    assert len(set(codes)) == len(codes), "PLO codes repeat"
+    for plo in outcomes["plos"]:
+        assert plo["title"], f"{plo['code']} has no title"
+        assert plo["slo_codes"], f"{plo['code']} maps no SLOs"
+
+
+def test_every_computer_science_slo_feeds_at_least_one_plo():
+    from app.outcomes import load_program_outcomes
+
+    mapped = {code for plo in load_program_outcomes()["plos"] for code in plo["slo_codes"]}
+
+    assert cs_slo_codes() - mapped == set(), "Computer Science SLOs no PLO claims"
+    assert mapped - cs_slo_codes() == set(), "PLOs claim SLOs that are not Computer Science"
+
+
+def cs_course_ids() -> set[str]:
+    cs_program_ids = {p["id"] for p in load("programs") if p["name"] == "Computer Science"}
+    return {c["id"] for c in load("courses") if c["program_id"] in cs_program_ids}
+
+
+def test_computer_science_slo_assessments_span_at_least_three_semesters():
+    """Trends are only visible with history: every Computer Science course that
+    reports a course-level SLO assessment reports one for three semesters or more."""
+    courses = {c["id"]: c["code"] for c in load("courses")}
+    course_level = [
+        a for a in load("slo_assessments")
+        if not a.get("section_id") and a["course_id"] in cs_course_ids()
+    ]
+    assert course_level, "no course-level SLO assessments for Computer Science"
+
+    semesters_by_course: dict[str, set[str]] = {}
+    for row in course_level:
+        semesters_by_course.setdefault(row["course_id"], set()).add(row["semester"])
+    for course_id, semesters in semesters_by_course.items():
+        assert len(semesters) >= 3, (
+            f"{courses[course_id]} has SLO assessments for only {sorted(semesters)} (need ≥3 semesters)"
+        )
