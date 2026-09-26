@@ -391,6 +391,9 @@ class SLOAssessment(Base):
     id = Column(String, primary_key=True)
     slo_id = Column(String, ForeignKey("slos.id"), nullable=False)
     course_id = Column(String, ForeignKey("courses.id"))
+    # The section this assessment measured (#98). Null means a course-level
+    # roll-up, which is what every assessment was before sections were tracked.
+    section_id = Column(String, ForeignKey("schedule_sections.id"))
     semester = Column(String)
     assessment_date = Column(Date)
     assessed_students = Column(Integer)
@@ -400,6 +403,7 @@ class SLOAssessment(Base):
     data_source = Column(SAEnum(DataSource), nullable=False)
 
     slo = relationship("SLO", back_populates="assessments")
+    section = relationship("ScheduleSection")
 
 
 class CohortSLOHistory(Base):

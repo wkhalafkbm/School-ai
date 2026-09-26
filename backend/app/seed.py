@@ -73,6 +73,7 @@ FK_CHECKS = [
     ("slos",                   "course_id",               "courses"),
     ("slo_assessments",        "slo_id",                  "slos"),
     ("slo_assessments",        "course_id",               "courses"),
+    ("slo_assessments",        "section_id",              "schedule_sections"),
     ("cohort_slo_history",     "course_id",               "courses"),
     ("cohort_slo_history",     "slo_id",                  "slos"),
     ("student_slo_results",    "student_id",              "students"),

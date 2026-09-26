@@ -509,3 +509,49 @@ def test_scripted_engagement_fixture_keeps_its_fallback_envelope():
     )
     assert payload["stage"] == "academic_risk_engagement"
     assert payload["source"] == "fallback"
+
+
+# ---------------------------------------------------------------------------
+# Issue #98 — the marking variance the demo turns on: two sections of one
+# Computer Science course assess the same SLO in the same semester and report
+# proficiency rates roughly 37 points apart.
+# ---------------------------------------------------------------------------
+
+def test_two_sections_of_one_cs_course_assess_the_same_slo_far_apart():
+    courses = {c["id"]: c for c in load("courses")}
+    sections = {s["id"]: s for s in load("schedule_sections")}
+    cs_program_ids = {
+        p["id"] for p in load("programs") if p["name"] == "Computer Science"
+    }
+
+    section_level = [a for a in load("slo_assessments") if a.get("section_id")]
+    assert section_level, "no section-level SLO assessment rows"
+
+    by_slo_semester: dict[tuple[str, str], list[dict]] = {}
+    for row in section_level:
+        by_slo_semester.setdefault((row["slo_id"], row["semester"]), []).append(row)
+
+    pairs = [rows for rows in by_slo_semester.values() if len(rows) == 2]
+    assert pairs, "no SLO is assessed by two sections in the same semester"
+
+    variance_pairs = []
+    for high, low in (sorted(rows, key=lambda r: -r["proficiency_rate"]) for rows in pairs):
+        course = courses[high["course_id"]]
+        assert course["program_id"] in cs_program_ids, (
+            f"{course['code']} is not a Computer Science course"
+        )
+        assert low["course_id"] == high["course_id"]
+        high_section, low_section = sections[high["section_id"]], sections[low["section_id"]]
+        assert high_section["course_id"] == course["id"]
+        assert low_section["course_id"] == course["id"]
+        assert high_section["semester"] == high["semester"]
+        assert low_section["semester"] == low["semester"]
+        assert high_section["instructor_id"] != low_section["instructor_id"], (
+            "both sections are taught by the same instructor"
+        )
+        if abs(high["proficiency_rate"] - 0.91) <= 0.02 and abs(low["proficiency_rate"] - 0.54) <= 0.02:
+            variance_pairs.append((high, low))
+
+    assert variance_pairs, (
+        "no pair of section-level rows reports roughly 91% and 54% proficient"
+    )

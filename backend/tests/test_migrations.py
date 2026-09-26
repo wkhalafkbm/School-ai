@@ -170,3 +170,22 @@ def test_downgrade_removes_all_tables(alembic_cfg, engine):
     tables = set(inspector.get_table_names())
     remaining = EXPECTED_TABLES & tables
     assert not remaining, f"Tables still present after downgrade: {remaining}"
+
+
+# Issue #98 — assessments used to be keyed by course and semester only. Marking
+# variance is a difference between two sections of one course, so an assessment
+# can now name the section it measured. The column is nullable: every row
+# written before this migration is a course-level roll-up and stays valid.
+def test_slo_assessments_gain_a_nullable_section_reference(alembic_cfg, engine):
+    command.upgrade(alembic_cfg, "head")
+    inspector = inspect(engine)
+
+    columns = {c["name"]: c for c in inspector.get_columns("slo_assessments")}
+    assert "section_id" in columns, "slo_assessments has no section_id column"
+    assert columns["section_id"]["nullable"] is True
+
+    fk_targets = {
+        (fk["referred_table"], tuple(fk["constrained_columns"]))
+        for fk in inspector.get_foreign_keys("slo_assessments")
+    }
+    assert ("schedule_sections", ("section_id",)) in fk_targets

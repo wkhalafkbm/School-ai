@@ -1,5 +1,6 @@
 [
   { "id": "sec-001", "course_id": "crs-001", "section_code": "CS101-01", "instructor_id": "fac-001", "semester": "2024-Fall", "days": ["Sun", "Tue"], "start_time": "09:00", "end_time": "10:15", "room": "B101", "capacity": 35, "enrolled": 30, "data_source": "SIS" },
+  { "id": "sec-001b", "course_id": "crs-001", "section_code": "CS101-02", "instructor_id": "fac-010", "semester": "2024-Fall", "days": ["Mon", "Wed"], "start_time": "11:00", "end_time": "12:15", "room": "B102", "capacity": 35, "enrolled": 24, "data_source": "SIS" },
   { "id": "sec-002", "course_id": "crs-002", "section_code": "CS201-01", "instructor_id": "fac-002", "semester": "2024-Fall", "days": ["Mon", "Wed"], "start_time": "11:00", "end_time": "12:15", "room": "B203", "capacity": 30, "enrolled": 28, "data_source": "SIS" },
   { "id": "sec-003", "course_id": "crs-003", "section_code": "MATH101-01", "instructor_id": "fac-003", "semester": "2024-Fall", "days": ["Sun", "Tue", "Thu"], "start_time": "09:00", "end_time": "09:50", "room": "A201", "capacity": 40, "enrolled": 38, "data_source": "SIS" },
   { "id": "sec-003b", "course_id": "crs-003", "section_code": "MATH101-02", "instructor_id": "fac-012", "semester": "2024-Fall", "days": ["Mon", "Wed"], "start_time": "09:00", "end_time": "10:15", "room": "A202", "capacity": 40, "enrolled": 35, "data_source": "SIS" },
