@@ -208,3 +208,35 @@ describe("WorkflowList", () => {
     expect(within(table).getByText("some_future_rule:2025-Spring")).toBeInTheDocument();
   });
 });
+
+// Issue #96 — a workflow item an agent files under the new Academic Quality
+// stage shows up in Workflow Activity badged the way the nav names the stage,
+// and the badge takes the reader back to that stage's page.
+const ACADEMIC_QUALITY_ITEM: WorkflowItem = {
+  id: "wfl-aq-001",
+  stage: "academic_quality",
+  trigger: "SLO proficiency below threshold — Computer Science",
+  owner_name: "Dr. Layla Al-Sabah",
+  owner_role: "program director",
+  status: "pending",
+  description: "Review CS program learning outcomes for the 2025-Fall cohort.",
+  due_date: "2025-10-01",
+};
+
+describe("WorkflowList — Academic Quality stage (#96)", () => {
+  it("badges an academic_quality item as Academic Quality", () => {
+    render(<WorkflowList items={[ACADEMIC_QUALITY_ITEM]} />);
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Academic Quality")).toBeInTheDocument();
+    expect(within(table).queryByText("academic_quality")).not.toBeInTheDocument();
+  });
+
+  it("links the stage badge back to the Academic Quality page", () => {
+    render(<WorkflowList items={[ACADEMIC_QUALITY_ITEM]} />);
+    const table = screen.getByRole("table");
+    expect(within(table).getByRole("link", { name: "Academic Quality" })).toHaveAttribute(
+      "href",
+      "/academic-quality"
+    );
+  });
+});

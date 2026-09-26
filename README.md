@@ -86,6 +86,7 @@ uses:
 | `teaching_readiness` | Teaching Readiness |
 | `academic_risk` | Academic Risk |
 | `progression` | Progression |
+| `academic_quality` | Academic Quality |
 | `career_alumni` | Career & Alumni |
 
 Declared in `backend/app/stages.py` and `frontend/src/lib/stages.ts`, offered to

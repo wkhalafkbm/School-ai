@@ -3,7 +3,8 @@
 import { useState, useMemo } from "react";
 import StatusBadge from "./StatusBadge";
 import { WORKFLOW_STATUS_MAP, WorkflowStatus } from "@/lib/status";
-import { Stage, STAGE_LABELS } from "@/lib/stages";
+import Link from "next/link";
+import { Stage, STAGE_LABELS, STAGE_ROUTES } from "@/lib/stages";
 
 export interface WorkflowItem {
   id: string;
@@ -99,7 +100,12 @@ export default function WorkflowList({ items }: Props) {
           {visible.map((item) => (
             <tr key={item.id} className="border-b last:border-0">
               <td className="py-2 pr-4">
-                {STAGE_LABELS[item.stage as Stage] ?? item.stage}
+                <Link
+                  href={STAGE_ROUTES[item.stage as Stage] ?? "/"}
+                  className="text-blue-700 hover:underline"
+                >
+                  {STAGE_LABELS[item.stage as Stage] ?? item.stage}
+                </Link>
               </td>
               <td className="py-2 pr-4">{triggerLabel(item.trigger)}</td>
               <td className="py-2 pr-4">{item.owner_name ?? "Unassigned"}</td>

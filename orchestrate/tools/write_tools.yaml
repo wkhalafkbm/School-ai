@@ -98,12 +98,13 @@ components:
           - teaching_readiness
           - academic_risk
           - progression
+          - academic_quality
           - career_alumni
           description: >-
             Journey stage that generated this item. One of: admissions, enrollment,
-            teaching_readiness, academic_risk, progression, career_alumni. The stage
-            decides which page shows the item, so a value outside this list is
-            rejected with 422.
+            teaching_readiness, academic_risk, progression, academic_quality,
+            career_alumni. The stage decides which page shows the item, so a value
+            outside this list is rejected with 422.
         trigger:
           type: string
           title: Trigger
