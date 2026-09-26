@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { label: "Teaching Readiness", href: "/teaching-readiness" },
   { label: "Academic Risk", href: "/academic-risk" },
   { label: "Progression", href: "/progression" },
-  { label: "Academic Quality", href: "/academic-quality" },
+  { label: "Moderation and Validation", href: "/academic-quality" },
   { label: "Career & Alumni", href: "/career-alumni" },
   { label: "Workflow Activity", href: "/workflow-activity" },
 ];

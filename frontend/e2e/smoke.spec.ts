@@ -38,7 +38,7 @@ const PAGES = [
   { label: "Teaching Readiness", path: "/teaching-readiness" },
   { label: "Academic Risk", path: "/academic-risk" },
   { label: "Progression", path: "/progression" },
-  { label: "Academic Quality", path: "/academic-quality" },
+  { label: "Moderation and Validation", path: "/academic-quality" },
   { label: "Career & Alumni", path: "/career-alumni" },
   { label: "Workflow Activity", path: "/workflow-activity" },
 ];

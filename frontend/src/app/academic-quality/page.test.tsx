@@ -210,7 +210,7 @@ describe("AcademicQualityPage", () => {
   it("renders the Academic Quality stage heading", () => {
     renderResolvedPage();
     expect(
-      screen.getByRole("heading", { level: 1, name: "Academic Quality" })
+      screen.getByRole("heading", { level: 1, name: "Moderation and Validation" })
     ).toBeInTheDocument();
   });
 
@@ -465,7 +465,7 @@ describe("PLO attainment chain", () => {
   it("carries the health badge in the header and counts the PLOs below target", () => {
     renderResolvedPage();
 
-    const header = screen.getByRole("heading", { level: 1, name: "Academic Quality" }).closest("header")!;
+    const header = screen.getByRole("heading", { level: 1, name: "Moderation and Validation" }).closest("header")!;
     expect(within(header).getByText("Needs Attention")).toBeInTheDocument();
     expect(within(header).getByText(/PLOs below target/i)).toHaveTextContent("PLOs below target: 1 of 2");
   });

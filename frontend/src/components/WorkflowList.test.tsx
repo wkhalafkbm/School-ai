@@ -227,14 +227,14 @@ describe("WorkflowList — Academic Quality stage (#96)", () => {
   it("badges an academic_quality item as Academic Quality", () => {
     render(<WorkflowList items={[ACADEMIC_QUALITY_ITEM]} />);
     const table = screen.getByRole("table");
-    expect(within(table).getByText("Academic Quality")).toBeInTheDocument();
+    expect(within(table).getByText("Moderation and Validation")).toBeInTheDocument();
     expect(within(table).queryByText("academic_quality")).not.toBeInTheDocument();
   });
 
   it("links the stage badge back to the Academic Quality page", () => {
     render(<WorkflowList items={[ACADEMIC_QUALITY_ITEM]} />);
     const table = screen.getByRole("table");
-    expect(within(table).getByRole("link", { name: "Academic Quality" })).toHaveAttribute(
+    expect(within(table).getByRole("link", { name: "Moderation and Validation" })).toHaveAttribute(
       "href",
       "/academic-quality"
     );

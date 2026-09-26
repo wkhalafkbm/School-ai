@@ -27,7 +27,7 @@ export const STAGE_LABELS: Record<Stage, string> = {
   teaching_readiness: "Teaching Readiness",
   academic_risk: "Academic Risk",
   progression: "Progression",
-  academic_quality: "Academic Quality",
+  academic_quality: "Moderation and Validation",
   career_alumni: "Career & Alumni",
 };
 
