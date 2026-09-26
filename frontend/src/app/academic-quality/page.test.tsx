@@ -66,12 +66,114 @@ const CS101_FLAG = {
   routed_item: null,
 };
 
+/** The Computer Science SLO → CLO → PLO chain (#97), trimmed to two PLOs. */
+const MOCK_ATTAINMENT = {
+  program_id: "prog-001",
+  program_name: "Computer Science",
+  attainment_target: 0.7,
+  latest_semester: "2024-Fall",
+  plos_below_target: 1,
+  plos: [
+    {
+      code: "PLO1",
+      title: "Program and build software",
+      description: "Graduates write correct, well-structured programs.",
+      attainment: 0.661,
+      on_target: false,
+      slo_count: 2,
+      assessed_slo_count: 1,
+      courses: [
+        {
+          course_id: "crs-001",
+          course_code: "CS101",
+          course_name: "Introduction to Computer Science",
+          attainment: 0.733,
+          on_target: true,
+          slos: [
+            {
+              slo_id: "slo-001",
+              slo_code: "CS101-SLO1",
+              description:
+                "Students will be able to write basic Python programs using variables, loops, and conditionals",
+              proficiency_rate: 0.733,
+              on_target: true,
+              last_assessed_semester: "2024-Fall",
+              assessed_students: 30,
+              source: "assessment",
+              history: [
+                { semester: "2023-Fall", proficiency_rate: 0.688 },
+                { semester: "2024-Spring", proficiency_rate: 0.714 },
+                { semester: "2024-Fall", proficiency_rate: 0.733 },
+              ],
+            },
+          ],
+        },
+        {
+          course_id: "crs-006",
+          course_code: "CS401",
+          course_name: "Software Engineering",
+          attainment: null,
+          on_target: null,
+          slos: [
+            {
+              slo_id: "slo-012",
+              slo_code: "CS401-SLO1",
+              description: "Students will produce software requirements specifications",
+              proficiency_rate: null,
+              on_target: null,
+              last_assessed_semester: null,
+              assessed_students: null,
+              source: null,
+              history: [],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      code: "PLO4",
+      title: "Apply data-driven and intelligent methods",
+      description: "Graduates build, train and evaluate data-driven solutions.",
+      attainment: 0.74,
+      on_target: true,
+      slo_count: 1,
+      assessed_slo_count: 1,
+      courses: [
+        {
+          course_id: "crs-007",
+          course_code: "CS450",
+          course_name: "Machine Learning",
+          attainment: 0.8,
+          on_target: true,
+          slos: [
+            {
+              slo_id: "slo-013",
+              slo_code: "CS450-SLO1",
+              description: "Students will train and evaluate supervised learning models",
+              proficiency_rate: 0.8,
+              on_target: true,
+              last_assessed_semester: "2024-Fall",
+              assessed_students: 20,
+              source: "assessment",
+              history: [{ semester: "2024-Fall", proficiency_rate: 0.8 }],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 const MOCK_PROFILE = {
   stage_summary: {
     health: "needs_attention",
     open_flag_count: 1,
     routed_flag_count: 0,
+    plo_count: 2,
+    plos_below_target: 1,
+    attainment_target: 0.7,
   },
+  program_attainment: MOCK_ATTAINMENT,
   moderation_variance_flags: [CS101_FLAG],
 };
 
@@ -264,7 +366,8 @@ describe("Route for moderation", () => {
 
   it("shows a flag the backend already reports as routed at Validate, with no button", () => {
     renderResolvedPage({
-      stage_summary: { health: "watch", open_flag_count: 0, routed_flag_count: 1 },
+      ...MOCK_PROFILE,
+      stage_summary: { ...MOCK_PROFILE.stage_summary, health: "watch", open_flag_count: 0, routed_flag_count: 1 },
       moderation_variance_flags: [
         {
           ...CS101_FLAG,
@@ -286,11 +389,82 @@ describe("Route for moderation", () => {
 
   it("lights only Measure and Diagnose when nothing is flagged", () => {
     renderResolvedPage({
-      stage_summary: { health: "on_track", open_flag_count: 0, routed_flag_count: 0 },
+      ...MOCK_PROFILE,
+      stage_summary: { ...MOCK_PROFILE.stage_summary, health: "on_track", open_flag_count: 0, routed_flag_count: 0 },
       moderation_variance_flags: [],
     });
 
     expect(litStepNames()).toEqual(["Measure", "Diagnose"]);
     expect(screen.getByText(/no marking variance detected/i)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Issue #97 — the SLO → CLO → PLO attainment chain. Each Computer Science PLO
+// is a bar against the 70% target; a PLO expands to the courses feeding it
+// (the CLO level) and, under each course, its SLOs with their rates and the
+// semester they were last assessed. The header badge follows the PLOs.
+// ---------------------------------------------------------------------------
+
+describe("PLO attainment chain", () => {
+  function chain() {
+    return screen.getByRole("region", { name: /program learning outcomes/i });
+  }
+
+  function ploRow(code: string) {
+    return within(chain()).getByRole("group", { name: new RegExp(`^${code}\\b`) });
+  }
+
+  it("draws one bar per PLO against the 70% target and says which side of it each sits", () => {
+    renderResolvedPage();
+
+    expect(within(chain()).getByText(/Computer Science/)).toBeInTheDocument();
+    const bars = within(chain()).getAllByRole("progressbar");
+    expect(bars).toHaveLength(2);
+
+    const plo1 = ploRow("PLO1");
+    expect(within(plo1).getByText("Program and build software")).toBeInTheDocument();
+    const bar = within(plo1).getByRole("progressbar");
+    expect(bar).toHaveAttribute("aria-valuenow", "66");
+    expect(bar).toHaveAttribute("aria-valuemax", "100");
+    expect(within(plo1).getByText("66%")).toBeInTheDocument();
+    expect(within(plo1).getByLabelText(/70% target/i)).toBeInTheDocument();
+    expect(within(plo1).getByText(/below target/i)).toBeInTheDocument();
+
+    const plo4 = ploRow("PLO4");
+    expect(within(plo4).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "74");
+    expect(within(plo4).getByText(/on target/i)).toBeInTheDocument();
+  });
+
+  it("expands a PLO to the courses feeding it and their SLOs with rate and last assessed semester", () => {
+    renderResolvedPage();
+
+    const toggle = within(ploRow("PLO1")).getByRole("button", { name: /PLO1/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(chain()).queryByText("CS101-SLO1")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    const cs101 = within(ploRow("PLO1")).getByRole("group", { name: /^CS101 — Introduction to Computer Science/ });
+    expect(within(cs101).getByText("73%", { selector: "[data-level='course']" })).toBeInTheDocument();
+    const slo = within(cs101).getByRole("listitem", { name: "CS101-SLO1" });
+    expect(within(slo).getByText("73%")).toBeInTheDocument();
+    expect(within(slo).getByText(/last assessed 2024-Fall/i)).toBeInTheDocument();
+
+    const cs401 = within(ploRow("PLO1")).getByRole("group", { name: /^CS401 — Software Engineering/ });
+    expect(within(cs401).getAllByText(/not yet assessed/i).length).toBeGreaterThan(0);
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(within(chain()).queryByText("CS101-SLO1")).not.toBeInTheDocument();
+  });
+
+  it("carries the health badge in the header and counts the PLOs below target", () => {
+    renderResolvedPage();
+
+    const header = screen.getByRole("heading", { level: 1, name: "Academic Quality" }).closest("header")!;
+    expect(within(header).getByText("Needs Attention")).toBeInTheDocument();
+    expect(within(header).getByText(/PLOs below target/i)).toHaveTextContent("PLOs below target: 1 of 2");
   });
 });

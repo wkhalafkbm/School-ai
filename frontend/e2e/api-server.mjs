@@ -467,12 +467,92 @@ const ROUTES = {
     ],
   },
 
-  // Academic Quality (#98): the CS101 marking variance the demo turns on.
+  // Academic Quality: the Computer Science PLO chain (#97) and the CS101
+  // marking variance the demo turns on (#98).
   "/api/academic-quality/profile": {
     stage_summary: {
       health: "needs_attention",
       open_flag_count: 1,
       routed_flag_count: 0,
+      plo_count: 2,
+      plos_below_target: 1,
+      attainment_target: 0.7,
+    },
+    program_attainment: {
+      program_id: "prog-001",
+      program_name: "Computer Science",
+      attainment_target: 0.7,
+      latest_semester: "2024-Fall",
+      plos_below_target: 1,
+      plos: [
+        {
+          code: "PLO1",
+          title: "Program and build software",
+          description: "Graduates write correct, well-structured programs.",
+          attainment: 0.661,
+          on_target: false,
+          slo_count: 1,
+          assessed_slo_count: 1,
+          courses: [
+            {
+              course_id: "crs-001",
+              course_code: "CS101",
+              course_name: "Introduction to Computer Science",
+              attainment: 0.733,
+              on_target: true,
+              slos: [
+                {
+                  slo_id: "slo-001",
+                  slo_code: "CS101-SLO1",
+                  description:
+                    "Students will be able to write basic Python programs using variables, loops, and conditionals",
+                  proficiency_rate: 0.733,
+                  on_target: true,
+                  last_assessed_semester: "2024-Fall",
+                  assessed_students: 30,
+                  source: "assessment",
+                  history: [
+                    { semester: "2023-Fall", proficiency_rate: 0.688 },
+                    { semester: "2024-Spring", proficiency_rate: 0.714 },
+                    { semester: "2024-Fall", proficiency_rate: 0.733 },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          code: "PLO4",
+          title: "Apply data-driven and intelligent methods",
+          description: "Graduates build, train and evaluate data-driven solutions.",
+          attainment: 0.74,
+          on_target: true,
+          slo_count: 1,
+          assessed_slo_count: 1,
+          courses: [
+            {
+              course_id: "crs-007",
+              course_code: "CS450",
+              course_name: "Machine Learning",
+              attainment: 0.8,
+              on_target: true,
+              slos: [
+                {
+                  slo_id: "slo-013",
+                  slo_code: "CS450-SLO1",
+                  description: "Students will train and evaluate supervised learning models",
+                  proficiency_rate: 0.8,
+                  on_target: true,
+                  last_assessed_semester: "2024-Fall",
+                  assessed_students: 20,
+                  source: "assessment",
+                  history: [{ semester: "2024-Fall", proficiency_rate: 0.8 }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
     },
     moderation_variance_flags: [
       {

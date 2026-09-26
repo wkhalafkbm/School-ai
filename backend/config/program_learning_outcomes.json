@@ -1,0 +1,31 @@
+{
+  "program_id": "prog-001",
+  "program_name": "Computer Science",
+  "attainment_target": 0.70,
+  "plos": [
+    {
+      "code": "PLO1",
+      "title": "Program and build software",
+      "description": "Graduates write correct, well-structured programs and construct software artefacts from requirements to working code.",
+      "slo_codes": ["CS101-SLO1", "CS201-SLO1", "CS301-SLO1", "CS401-SLO1"]
+    },
+    {
+      "code": "PLO2",
+      "title": "Reason algorithmically",
+      "description": "Graduates analyse problems computationally, trace and prove algorithm behaviour, and reason about efficiency.",
+      "slo_codes": ["CS101-SLO2", "CS101-SLO3", "CS201-SLO2", "CS301-SLO2"]
+    },
+    {
+      "code": "PLO3",
+      "title": "Design systems and make engineering judgements",
+      "description": "Graduates select appropriate structures and strategies for a problem and understand how operating systems and engineered software behave.",
+      "slo_codes": ["CS201-SLO3", "CS302-SLO1", "CS401-SLO1"]
+    },
+    {
+      "code": "PLO4",
+      "title": "Apply data-driven and intelligent methods",
+      "description": "Graduates build, train and evaluate data-driven solutions on top of sound algorithmic foundations.",
+      "slo_codes": ["CS450-SLO1", "CS301-SLO1"]
+    }
+  ]
+}

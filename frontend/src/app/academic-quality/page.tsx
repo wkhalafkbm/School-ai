@@ -6,6 +6,7 @@ import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import { StatusCode } from "@/lib/status";
 import WorkflowStrip, { WorkflowStep } from "./WorkflowStrip";
 import AcademicQualityActions from "./AcademicQualityActions";
+import AttainmentChain, { ProgramAttainment } from "./AttainmentChain";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -53,7 +54,12 @@ interface AcademicQualityProfile {
     health: StatusCode;
     open_flag_count: number;
     routed_flag_count: number;
+    plo_count: number;
+    plos_below_target: number;
+    attainment_target: number;
   };
+  /** The SLO → CLO → PLO chain for the configured program (#97). */
+  program_attainment: ProgramAttainment | null;
   moderation_variance_flags: ModerationVarianceFlag[];
 }
 
@@ -152,7 +158,7 @@ export default function AcademicQualityPage() {
     );
   }
 
-  const { stage_summary, moderation_variance_flags } = data;
+  const { stage_summary, program_attainment, moderation_variance_flags } = data;
   const isRouted = (flag: ModerationVarianceFlag) =>
     flag.routed_item !== null || routedTriggers.has(flag.trigger);
   const markRouted = (flag: ModerationVarianceFlag) =>
@@ -170,6 +176,10 @@ export default function AcademicQualityPage() {
           <StatusBadge code={stage_summary.health} />
           <div className="ml-auto flex gap-6 text-sm text-gray-600">
             <span>
+              PLOs below target: <strong>{stage_summary.plos_below_target}</strong> of{" "}
+              {stage_summary.plo_count}
+            </span>
+            <span>
               Open flags: <strong>{openCount}</strong>
             </span>
             <span>
@@ -183,6 +193,8 @@ export default function AcademicQualityPage() {
           for human moderation.
         </p>
       </header>
+
+      {program_attainment && <AttainmentChain program={program_attainment} />}
 
       {moderation_variance_flags.length === 0 ? (
         <p className="rounded-lg border border-gray-200 bg-white p-5 text-sm text-gray-600 shadow-sm">
