@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import StatusBadge from "@/components/StatusBadge";
+import MarkdownText from "@/components/MarkdownText";
+import StreamedField from "@/components/StreamedField";
 import { useStreamedProfile } from "@/lib/useStreamedProfile";
 import { StatusCode } from "@/lib/status";
 import WorkflowStrip, { WorkflowStep } from "./WorkflowStrip";
@@ -61,6 +63,12 @@ interface AcademicQualityProfile {
   /** The SLO → CLO → PLO chain for the configured program (#97). */
   program_attainment: ProgramAttainment | null;
   moderation_variance_flags: ModerationVarianceFlag[];
+  /**
+   * Agent 10's narration (#99): why the flagged SLO matters for its PLO, what
+   * the section gap suggests, and what to moderate first. Canned in the base
+   * event; the agent's paragraph streams in as a field event.
+   */
+  diagnosis: string;
 }
 
 /** Where the quality workflow stands, read off the flags. */
@@ -145,7 +153,7 @@ function ModerationVarianceCard({
 }
 
 export default function AcademicQualityPage() {
-  const { data } = useStreamedProfile<AcademicQualityProfile>(
+  const { data, done } = useStreamedProfile<AcademicQualityProfile>(
     `${API}/api/academic-quality/profile/stream`
   );
   // Flags routed in this session, so the strip and card move on without a
@@ -158,7 +166,7 @@ export default function AcademicQualityPage() {
     );
   }
 
-  const { stage_summary, program_attainment, moderation_variance_flags } = data;
+  const { stage_summary, program_attainment, moderation_variance_flags, diagnosis } = data;
   const isRouted = (flag: ModerationVarianceFlag) =>
     flag.routed_item !== null || routedTriggers.has(flag.trigger);
   const markRouted = (flag: ModerationVarianceFlag) =>
@@ -210,6 +218,18 @@ export default function AcademicQualityPage() {
           />
         ))
       )}
+
+      <section
+        aria-label="Diagnosis"
+        className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
+      >
+        <h2 className="mb-2 text-base font-semibold text-gray-900">Diagnosis</h2>
+        <div className="text-sm text-gray-700">
+          <StreamedField resolved={done}>
+            <MarkdownText text={diagnosis} />
+          </StreamedField>
+        </div>
+      </section>
 
       <WorkflowStrip activeStep={activeWorkflowStep(moderation_variance_flags, isRouted)} />
     </main>

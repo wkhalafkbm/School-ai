@@ -1,0 +1,5 @@
+{
+  "stage": "academic_quality",
+  "result": "CS101-SLO1 (writing basic Python programs) feeds PLO1, Program and build software, which sits at 66% against the 70% target, so it is the single SLO with the most leverage over the programme's weakest outcome. In 2024-Fall the two CS101 sections disagree by 37 points on that SLO: CS101-01 (Dr. Ahmed Al-Rashidi) recorded 91% proficient while CS101-02 (Dr. Noura Al-Azemi) recorded 54%. A gap that wide on one outcome in one semester, while the course-level rate for the same cohort sits at 73%, points to inconsistent marking rather than a genuine difference between the two groups of students. Moderate CS101-SLO1 first: have both instructors re-mark a shared sample of the 2024-Fall assessment against one rubric, and hold any conclusion about PLO1 until the moderated rate is in.",
+  "source": "fallback"
+}

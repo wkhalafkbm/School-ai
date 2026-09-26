@@ -554,6 +554,8 @@ const ROUTES = {
         },
       ],
     },
+    diagnosis:
+      "CS101-SLO1 (writing basic Python programs) feeds PLO1, Program and build software, which sits at 66% against the 70% target. In 2024-Fall CS101-01 (Dr. Ahmed Al-Rashidi) recorded 91% proficient while CS101-02 (Dr. Noura Al-Azemi) recorded 54%: a 37-point gap on one SLO in one semester points to inconsistent marking rather than a genuine cohort difference. Moderate CS101-SLO1 first.",
     moderation_variance_flags: [
       {
         course_id: "crs-001",

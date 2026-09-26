@@ -100,6 +100,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /api/programs/{program_id}/outcome-attainment:
+    get:
+      tags:
+      - programs
+      summary: Get program outcome attainment and marking variance flags
+      description: >-
+        Returns the program's learning outcome (PLO) attainment chain against its
+        target — each PLO with its attainment rate, the courses feeding it and each
+        course's SLO rates — plus any marking variance flags: pairs of sections of one
+        course whose proficiency on the same SLO in the same semester differ by the
+        moderation threshold or more, with both sections' instructors and rates, the
+        gap in points, the PLOs the flagged SLO feeds, and whether the flag has
+        already been routed for moderation.
+      operationId: get_outcome_attainment_api_programs__program_id__outcome_attainment_get
+      parameters:
+      - name: program_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Program Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '404':
+          description: Program not found or no outcome attainment configured
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     HTTPValidationError:
