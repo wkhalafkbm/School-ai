@@ -180,7 +180,7 @@ export default function AcademicQualityPage() {
     <main className="space-y-6 p-6">
       <header className="space-y-2">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-900">Academic Quality</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Moderation and Validation</h1>
           <StatusBadge code={stage_summary.health} />
           <div className="ml-auto flex gap-6 text-sm text-gray-600">
             <span>

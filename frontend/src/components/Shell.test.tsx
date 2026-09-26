@@ -13,7 +13,7 @@ const NAV_LINKS = [
   "Teaching Readiness",
   "Academic Risk",
   "Progression",
-  "Academic Quality",
+  "Moderation and Validation",
   "Career & Alumni",
   "Workflow Activity",
 ];
@@ -43,7 +43,7 @@ describe("Shell", () => {
 describe("Shell sidebar — Academic Quality stage (#96)", () => {
   it("links to the Academic Quality page", () => {
     render(<Shell>content</Shell>);
-    expect(screen.getByRole("link", { name: "Academic Quality" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Moderation and Validation" })).toHaveAttribute(
       "href",
       "/academic-quality"
     );
@@ -56,6 +56,6 @@ describe("Shell sidebar — Academic Quality stage (#96)", () => {
       .map((link) => link.textContent);
     const progression = labels.indexOf("Progression");
     expect(progression).toBeGreaterThan(-1);
-    expect(labels[progression + 1]).toBe("Academic Quality");
+    expect(labels[progression + 1]).toBe("Moderation and Validation");
   });
 });
