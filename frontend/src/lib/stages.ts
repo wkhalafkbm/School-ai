@@ -15,6 +15,7 @@ export const STAGES = [
   "teaching_readiness",
   "academic_risk",
   "progression",
+  "academic_quality",
   "career_alumni",
 ] as const;
 
@@ -26,6 +27,7 @@ export const STAGE_LABELS: Record<Stage, string> = {
   teaching_readiness: "Teaching Readiness",
   academic_risk: "Academic Risk",
   progression: "Progression",
+  academic_quality: "Academic Quality",
   career_alumni: "Career & Alumni",
 };
 
@@ -35,13 +37,14 @@ export const STAGE_ROUTES: Record<Stage, string> = {
   teaching_readiness: "/teaching-readiness",
   academic_risk: "/academic-risk",
   progression: "/progression",
+  academic_quality: "/academic-quality",
   career_alumni: "/career-alumni",
 };
 
 /**
- * The stages the Overview journey-health map reports on. Teaching readiness is
- * absent because its health is a property of a cohort, not of a student moving
- * through the journey.
+ * The stages the Overview journey-health map reports on. Teaching readiness and
+ * academic quality (#96) are absent because their health is a property of a
+ * cohort or a program, not of a student moving through the journey.
  */
 export const JOURNEY_HEALTH_STAGES = [
   "admissions",

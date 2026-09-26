@@ -22,14 +22,16 @@ class Stage(StrEnum):
     teaching_readiness = "teaching_readiness"
     academic_risk = "academic_risk"
     progression = "progression"
+    academic_quality = "academic_quality"
     career_alumni = "career_alumni"
 
 
 STAGES: frozenset[str] = frozenset(Stage)
 
-# The stages the Overview journey-health map reports on. Teaching readiness is
-# absent because its health is a property of a cohort, not of a student moving
-# through the journey — the map's row is one status per student-facing stage.
+# The stages the Overview journey-health map reports on. Teaching readiness and
+# academic quality (#96) are absent because their health is a property of a
+# cohort or a program, not of a student moving through the journey — the map's
+# row is one status per student-facing stage.
 JOURNEY_HEALTH_STAGES: tuple[Stage, ...] = (
     Stage.admissions,
     Stage.enrollment,

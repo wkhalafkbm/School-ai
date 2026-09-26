@@ -201,3 +201,15 @@ def test_the_e2e_mock_keys_journey_health_by_the_same_stages_the_map_reads():
         "the e2e mock's journey-health keys have drifted from the stages "
         f"JourneyHealthMap reads: {sorted(mocked ^ expected)}"
     )
+
+
+# Issue #96 — Academic Quality (Agent 10) is a journey stage the whole system
+# recognises, but program quality is a property of a program, not of a student
+# moving through the journey, so the Overview journey-health map leaves it out
+# the same way it leaves out teaching readiness.
+def test_academic_quality_is_a_stage_the_journey_health_map_does_not_report_on():
+    from app.stages import JOURNEY_HEALTH_STAGES, Stage
+
+    assert "academic_quality" in STAGES
+    assert Stage.academic_quality not in JOURNEY_HEALTH_STAGES
+    assert Stage.teaching_readiness not in JOURNEY_HEALTH_STAGES
