@@ -14,23 +14,35 @@ Issue #97 adds the upward half of the deck's evidence chain: Assessment →
 SLO → CLO → PLO → program effectiveness, for the program configured in
 ``config/program_learning_outcomes.json``. The arithmetic lives in
 ``app.outcomes``; this module only fetches the rows it needs.
+
+Issue #99 adds Agent 10's narration. The agent does none of the arithmetic:
+one read tool (``/api/programs/{id}/outcome-attainment``) hands it the chain
+and the flags above, and the profile streams its paragraph in as ``diagnosis``,
+with a canned paragraph standing in for scripted mode and for any failure.
 """
 
 import asyncio
 from itertools import combinations
 
-from fastapi import APIRouter, Depends
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.gateway import fallback, iam, orchestrate
+from app.gateway.config import get_agent_id
 from app.outcomes import compute_attainment, load_program_outcomes
 from app.stages import Stage
 from app.status import StatusCode, status_meta
-from app.streaming import ResolverFn, set_nested, stream_profile
+from app.streaming import ResolverFn, resolve_or_fallback, set_nested, stream_profile
 
 router = APIRouter(prefix="/api/academic-quality", tags=["academic-quality"])
+
+# The read tool Agent 10 calls (#99). It lives under /api/programs like the
+# other program-level read tools, but the arithmetic is this module's.
+tool_router = APIRouter(prefix="/api/programs", tags=["programs"])
 
 # Two sections of one course differing on the same SLO by this many percentage
 # points or more is a marking inconsistency a human has to moderate.
@@ -116,6 +128,7 @@ def moderation_variance_flags(db: Session) -> list[dict]:
         grouped.setdefault((row.course_id, row.slo_id, row.semester), []).append(row)
 
     routed = _routed_items(db)
+    feeds = _plos_fed_by_slo()
     flags: list[dict] = []
     for rows in grouped.values():
         for a, b in combinations(rows, 2):
@@ -142,9 +155,19 @@ def moderation_variance_flags(db: Session) -> list[dict]:
                     "moderation_owner_name": MODERATION_OWNER_NAME,
                     "moderation_owner_role": MODERATION_OWNER_ROLE,
                     "routed_item": routed.get(trigger),
+                    "feeds_plos": feeds.get(high.slo_code, []),
                 }
             )
     return flags
+
+
+def _plos_fed_by_slo() -> dict[str, list[str]]:
+    """SLO code → the PLO codes it feeds, from the outcomes config."""
+    feeds: dict[str, list[str]] = {}
+    for plo in load_program_outcomes()["plos"]:
+        for code in plo["slo_codes"]:
+            feeds.setdefault(code, []).append(plo["code"])
+    return feeds
 
 
 def _program_slos(db: Session, program_id: str) -> list[dict]:
@@ -202,6 +225,43 @@ def program_attainment(db: Session) -> dict:
     )
 
 
+def _program_course_ids(db: Session, program_id: str) -> set[str]:
+    rows = db.execute(
+        text("SELECT id FROM courses WHERE program_id = :program_id"), {"program_id": program_id}
+    ).fetchall()
+    return {row.id for row in rows}
+
+
+@tool_router.get(
+    "/{program_id}/outcome-attainment",
+    summary="Get program outcome attainment and marking variance flags",
+    description=(
+        "Returns the program's learning outcome (PLO) attainment chain against its "
+        "target — each PLO with its attainment rate, the courses feeding it and each "
+        "course's SLO rates — plus any marking variance flags: pairs of sections of one "
+        "course whose proficiency on the same SLO in the same semester differ by the "
+        "moderation threshold or more, with both sections' instructors and rates, the "
+        "gap in points, the PLOs the flagged SLO feeds, and whether the flag has already "
+        "been routed for moderation."
+    ),
+)
+def get_outcome_attainment(program_id: str, db: Session = Depends(get_db)):
+    outcomes = load_program_outcomes()
+    if program_id != outcomes["program_id"]:
+        known = db.execute(
+            text("SELECT 1 FROM programs WHERE id = :program_id"), {"program_id": program_id}
+        ).first()
+        if known is None:
+            raise HTTPException(status_code=404, detail="Program not found")
+        raise HTTPException(status_code=404, detail="No outcome attainment configured for program")
+    course_ids = _program_course_ids(db, program_id)
+    attainment = program_attainment(db)
+    attainment["moderation_variance_flags"] = [
+        flag for flag in moderation_variance_flags(db) if flag["course_id"] in course_ids
+    ]
+    return attainment
+
+
 def _moderation_health(flags: list[dict]) -> StatusCode:
     if not flags:
         return StatusCode.on_track
@@ -227,9 +287,58 @@ def _health(flags: list[dict], plos_below_target: int) -> StatusCode:
     )
 
 
+async def _live_diagnosis(payload: str) -> str | None:
+    """Ask Agent 10 to narrate; None means the caller should fall back."""
+    try:
+        agent_id = get_agent_id("academic_quality")
+        token = await iam.get_token()
+        run_id = await orchestrate.start_run(agent_id, token, payload)
+        run = await orchestrate.poll_run(agent_id, run_id, token)
+    except (HTTPException, KeyError, httpx.HTTPError):
+        return None
+    if run["status"] != "completed":
+        return None
+    return run["output"]["result"]
+
+
+def diagnosis_request(attainment: dict, flags: list[dict]) -> str:
+    """
+    The plain-sentence brief Agent 10 receives. It carries the ids the agent's
+    tools take and the names the narration has to use; the numbers themselves
+    come back through the tools, never from here.
+    """
+    program = attainment["program_name"]
+    lines = [
+        f"The program_id is {attainment['program_id']} ({program}). "
+        f"Read its outcome attainment and marking variance flags with your tool, "
+        f"then narrate the quality diagnosis for the programme quality lead in one short paragraph."
+    ]
+    if not flags:
+        lines.append(
+            "No marking variance is flagged this semester; explain which PLOs sit below "
+            "target and which course SLO the lead should look at first."
+        )
+    for flag in flags:
+        sections = " and ".join(
+            f"{s['section_code']} ({s['instructor_name'] or 'unassigned instructor'})"
+            for s in flag["sections"]
+        )
+        plos = ", ".join(flag["feeds_plos"]) or "no configured PLO"
+        lines.append(
+            f"The flagged course is {flag['course_code']} (course_id {flag['course_id']}), "
+            f"SLO {flag['slo_code']}, semester {flag['semester']}, between sections {sections}; "
+            f"that SLO feeds {plos}. Explain why this SLO matters for its PLO, whether the "
+            f"section gap looks like marking inconsistency or a genuine cohort difference, and "
+            f"what to moderate first. Name the course, the SLO and both sections."
+        )
+    return " ".join(lines)
+
+
 def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
     flags = moderation_variance_flags(db)
     attainment = program_attainment(db)
+    canned_diagnosis = fallback.get(Stage.academic_quality)["result"]
+    request = diagnosis_request(attainment, flags)
     base = {
         "stage_summary": {
             "health": _health(flags, attainment["plos_below_target"]),
@@ -241,8 +350,15 @@ def _build_profile(db: Session) -> tuple[dict, dict[str, ResolverFn]]:
         },
         "program_attainment": attainment,
         "moderation_variance_flags": flags,
+        # Agent 10's narration (#99). The canned paragraph is what the page
+        # shows until the agent answers, and what it keeps if the agent cannot.
+        "diagnosis": canned_diagnosis,
     }
-    resolvers: dict[str, ResolverFn] = {}
+
+    async def resolve_diagnosis() -> str:
+        return await resolve_or_fallback(canned_diagnosis, lambda: _live_diagnosis(request))
+
+    resolvers: dict[str, ResolverFn] = {"diagnosis": resolve_diagnosis}
     return base, resolvers
 
 

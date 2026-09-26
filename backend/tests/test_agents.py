@@ -1,4 +1,5 @@
-"""Tests for issue #22 — Orchestrate agent definitions (all 9 agents).
+"""Tests for issue #22 — Orchestrate agent definitions (the 9 journey agents),
+plus Agent 10, the academic quality agent (#99).
 
 Validates each agent YAML against the ADK spec format and project policy.
 TDD vertical slices: one test → one implementation → repeat.
@@ -30,6 +31,9 @@ NINE_AGENT_FILES = [
     "progression_agent.yaml",
     "career_alumni_agent.yaml",
 ]
+
+# Agent 10 (#99) joins the shared structural checks.
+ALL_AGENT_FILES = [*NINE_AGENT_FILES, "academic_quality_agent.yaml"]
 
 
 def _load_valid_operationids() -> set[str]:
@@ -134,7 +138,7 @@ def test_admissions_agent_instructions_are_substantive():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("filename", NINE_AGENT_FILES)
+@pytest.mark.parametrize("filename", ALL_AGENT_FILES)
 def test_agent_file_exists(filename):
     assert (AGENTS_DIR / filename).exists(), (
         f"{filename} not found under orchestrate/agents/"
@@ -146,21 +150,21 @@ def test_agent_file_exists(filename):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("filename", NINE_AGENT_FILES)
+@pytest.mark.parametrize("filename", ALL_AGENT_FILES)
 def test_agent_has_required_fields(filename):
     data = yaml.safe_load((AGENTS_DIR / filename).read_text())
     missing = REQUIRED_ADK_FIELDS - set(data.keys())
     assert not missing, f"{filename} missing required fields: {missing}"
 
 
-@pytest.mark.parametrize("filename", NINE_AGENT_FILES)
+@pytest.mark.parametrize("filename", ALL_AGENT_FILES)
 def test_agent_spec_version_and_kind(filename):
     data = yaml.safe_load((AGENTS_DIR / filename).read_text())
     assert data.get("spec_version") == "v1", f"{filename}: spec_version must be 'v1'"
     assert data.get("kind") == "native", f"{filename}: kind must be 'native'"
 
 
-@pytest.mark.parametrize("filename", NINE_AGENT_FILES)
+@pytest.mark.parametrize("filename", ALL_AGENT_FILES)
 def test_agent_name_matches_filename(filename):
     data = yaml.safe_load((AGENTS_DIR / filename).read_text())
     expected_name = filename.replace(".yaml", "")
@@ -174,7 +178,7 @@ def test_agent_name_matches_filename(filename):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("filename", NINE_AGENT_FILES)
+@pytest.mark.parametrize("filename", ALL_AGENT_FILES)
 def test_agent_tools_reference_valid_operationids(filename):
     valid_ids = _load_valid_operationids()
     data = yaml.safe_load((AGENTS_DIR / filename).read_text())
@@ -189,7 +193,7 @@ def test_agent_tools_reference_valid_operationids(filename):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("filename", NINE_AGENT_FILES)
+@pytest.mark.parametrize("filename", ALL_AGENT_FILES)
 def test_agent_instructions_have_no_banned_terms(filename):
     data = yaml.safe_load((AGENTS_DIR / filename).read_text())
     instructions_lower = data["instructions"].lower()
@@ -197,7 +201,7 @@ def test_agent_instructions_have_no_banned_terms(filename):
     assert not found, f"{filename} instructions contain banned terms: {found}"
 
 
-@pytest.mark.parametrize("filename", NINE_AGENT_FILES)
+@pytest.mark.parametrize("filename", ALL_AGENT_FILES)
 def test_agent_instructions_are_substantive(filename):
     data = yaml.safe_load((AGENTS_DIR / filename).read_text())
     assert len(data["instructions"]) >= 200, (
@@ -205,7 +209,7 @@ def test_agent_instructions_are_substantive(filename):
     )
 
 
-@pytest.mark.parametrize("filename", NINE_AGENT_FILES)
+@pytest.mark.parametrize("filename", ALL_AGENT_FILES)
 def test_agent_has_nonempty_tools_list(filename):
     data = yaml.safe_load((AGENTS_DIR / filename).read_text())
     tools = data.get("tools", [])
@@ -389,3 +393,28 @@ def test_engagement_agent_write_tools_are_unchanged():
         "the engagement agent's write-tool usage must not change in #67, "
         f"found: {used_write_tools}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Issue #99 — Agent 10 narrates the quality diagnosis. It reads the attainment
+# chain and variance flags through one tool plus the two SLO read tools, never
+# writes (the human presses the route button), and is told not to invent numbers.
+# ---------------------------------------------------------------------------
+
+ACADEMIC_QUALITY_TOOLS = [
+    "get_outcome_attainment_api_programs_program_id_outcome_attainment_get",
+    "get_cohort_slo_history_api_courses_course_id_slo_history_get",
+    "get_slo_assessments_api_courses_course_id_slo_assessments_get",
+]
+
+
+def test_academic_quality_agent_reads_the_attainment_tool_and_the_slo_tools_only():
+    data = yaml.safe_load((AGENTS_DIR / "academic_quality_agent.yaml").read_text())
+    assert sorted(data["tools"]) == sorted(ACADEMIC_QUALITY_TOOLS)
+    assert "create_workflow_item" not in data["tools"]
+
+
+def test_academic_quality_agent_is_told_to_narrate_from_tool_output_only():
+    instructions = yaml.safe_load((AGENTS_DIR / "academic_quality_agent.yaml").read_text())["instructions"].lower()
+    for phrase in ("do not invent", "marking", "moderat", "plo", "section"):
+        assert phrase in instructions, f"instructions never mention {phrase!r}"

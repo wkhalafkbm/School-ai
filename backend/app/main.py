@@ -31,6 +31,7 @@ app.include_router(academic_risk.router)
 app.include_router(progression.router)
 app.include_router(career_alumni.router)
 app.include_router(academic_quality.router)
+app.include_router(academic_quality.tool_router)
 
 
 @app.get("/health")

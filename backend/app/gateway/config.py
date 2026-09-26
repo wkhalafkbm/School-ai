@@ -16,6 +16,7 @@ _STAGE_ENV_VARS: dict[str, str] = {
     "academic_risk_support": "AGENT_ID_ACADEMIC_RISK_SUPPORT",
     "progression": "AGENT_ID_PROGRESSION",
     "career": "AGENT_ID_CAREER",
+    "academic_quality": "AGENT_ID_ACADEMIC_QUALITY",
 }
 
 VALID_STAGES = set(_STAGE_ENV_VARS)

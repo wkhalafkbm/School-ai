@@ -175,6 +175,8 @@ const MOCK_PROFILE = {
   },
   program_attainment: MOCK_ATTAINMENT,
   moderation_variance_flags: [CS101_FLAG],
+  diagnosis:
+    "CS101-SLO1 feeds PLO1, which sits at 66% against the 70% target. CS101-01 and CS101-02 disagree by 37 points; moderate CS101-SLO1 first.",
 };
 
 function renderResolvedPage(data: unknown = MOCK_PROFILE) {
@@ -466,5 +468,58 @@ describe("PLO attainment chain", () => {
     const header = screen.getByRole("heading", { level: 1, name: "Academic Quality" }).closest("header")!;
     expect(within(header).getByText("Needs Attention")).toBeInTheDocument();
     expect(within(header).getByText(/PLOs below target/i)).toHaveTextContent("PLOs below target: 1 of 2");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Issue #99 — Agent 10 narrates the diagnosis. The numbers and the red card
+// render at once from the base event; the Diagnosis paragraph shows the canned
+// text under an "AI refining…" badge until the agent's field event lands.
+// ---------------------------------------------------------------------------
+
+describe("Diagnosis", () => {
+  function diagnosis() {
+    return screen.getByRole("region", { name: /^diagnosis$/i });
+  }
+
+  it("shows the canned diagnosis under a refining badge as soon as the base profile renders", () => {
+    render(<AcademicQualityPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+
+    expect(within(diagnosis()).getByRole("heading", { name: "Diagnosis" })).toBeInTheDocument();
+    expect(within(diagnosis()).getByText(/moderate CS101-SLO1 first/)).toBeInTheDocument();
+    expect(within(diagnosis()).getByText(/AI refining/i)).toBeInTheDocument();
+    // The numbers never wait on the agent.
+    expect(screen.getByRole("region", { name: /moderation variance/i })).toBeInTheDocument();
+  });
+
+  it("swaps in the agent's paragraph when its field event arrives and clears the badge on done", () => {
+    render(<AcademicQualityPage />);
+    const es = StubEventSource.instances[0];
+
+    act(() => {
+      es.emit("base", MOCK_PROFILE);
+    });
+    act(() => {
+      es.emit("field", {
+        path: "diagnosis",
+        value: "Live agent: the 37-point gap between CS101-01 and CS101-02 on CS101-SLO1 reads as marking inconsistency.",
+      });
+    });
+
+    expect(within(diagnosis()).getByText(/reads as marking inconsistency/)).toBeInTheDocument();
+    expect(within(diagnosis()).queryByText(/moderate CS101-SLO1 first/)).not.toBeInTheDocument();
+    expect(within(diagnosis()).getByText(/AI refining/i)).toBeInTheDocument();
+
+    act(() => {
+      es.emit("done", {});
+    });
+
+    expect(screen.queryByText(/AI refining/i)).not.toBeInTheDocument();
+    expect(within(diagnosis()).getByText(/reads as marking inconsistency/)).toBeInTheDocument();
   });
 });

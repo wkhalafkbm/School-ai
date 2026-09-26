@@ -371,3 +371,219 @@ def test_profile_stream_serves_the_attainment_chain_in_the_base_event(client):
 
     base = json.loads(body.split("\n\n")[0].split("data: ", 1)[1])
     assert [p["code"] for p in base["program_attainment"]["plos"]] == ["PLO1", "PLO2", "PLO3", "PLO4"]
+
+
+# ---------------------------------------------------------------------------
+# Issue #99 — Agent 10 narrates the diagnosis. The agent does no arithmetic:
+# one read tool hands it the program's attainment chain and the variance flags
+# the backend already computed.
+# ---------------------------------------------------------------------------
+
+OUTCOME_ATTAINMENT_PATH = "/api/programs/{program_id}/outcome-attainment"
+PROGRAMS_TOOL_SPEC = Path(__file__).parent.parent.parent / "orchestrate" / "tools" / "read" / "programs_tools.yaml"
+
+
+def test_outcome_attainment_endpoint_returns_the_chain_and_the_variance_flags(client):
+    response = client.get("/api/programs/prog-001/outcome-attainment")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["program_id"] == "prog-001"
+    assert body["program_name"] == "Computer Science"
+    assert body["attainment_target"] == 0.70
+    assert [p["code"] for p in body["plos"]] == ["PLO1", "PLO2", "PLO3", "PLO4"]
+    assert body["plos_below_target"] == 3
+
+    [flag] = body["moderation_variance_flags"]
+    assert flag["course_code"] == "CS101"
+    assert flag["slo_code"] == "CS101-SLO1"
+    assert flag["gap_points"] == 37.1
+    assert [s["section_code"] for s in flag["sections"]] == ["CS101-01", "CS101-02"]
+    # The flag says which PLOs the flagged SLO feeds, so the agent can explain
+    # why the SLO matters without walking the chain itself.
+    assert flag["feeds_plos"] == ["PLO1"]
+
+
+def test_outcome_attainment_is_404_for_an_unknown_program(client):
+    assert client.get("/api/programs/prog-999/outcome-attainment").status_code == 404
+
+
+def _spec_operation() -> dict:
+    import yaml
+
+    spec = yaml.safe_load(PROGRAMS_TOOL_SPEC.read_text())
+    assert OUTCOME_ATTAINMENT_PATH in spec["paths"], (
+        f"{OUTCOME_ATTAINMENT_PATH} missing from programs_tools.yaml — the agent "
+        "cannot call an endpoint that is not in the tool spec"
+    )
+    return spec["paths"][OUTCOME_ATTAINMENT_PATH]["get"]
+
+
+def test_outcome_attainment_tool_spec_matches_the_live_endpoint():
+    served = app.openapi()["paths"][OUTCOME_ATTAINMENT_PATH]["get"]
+    spec = _spec_operation()
+    assert spec["operationId"] == served["operationId"]
+    assert spec["operationId"] == "get_outcome_attainment_api_programs__program_id__outcome_attainment_get"
+    assert spec["summary"] == served["summary"]
+    assert spec["description"] == served["description"]
+    assert spec["tags"] == ["programs"]
+
+
+def test_outcome_attainment_tool_description_tells_the_agent_what_it_gets():
+    description = _spec_operation()["description"].lower()
+    for word in ("plo", "attainment", "variance", "section", "gap"):
+        assert word in description, f"description never mentions {word!r}"
+
+
+# --- the gateway knows the agent under its own routing key ---
+
+def test_gateway_routes_academic_quality_to_its_own_agent_id_variable(monkeypatch):
+    from app.gateway.config import VALID_STAGES, get_agent_id
+
+    assert "academic_quality" in VALID_STAGES
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_QUALITY", "agent-academic-quality-001")
+    assert get_agent_id("academic_quality") == "agent-academic-quality-001"
+
+
+# --- the profile's `diagnosis` field: canned in scripted mode ---
+
+import httpx
+import respx
+
+import app.gateway.iam as iam_module
+
+WXO_BASE = "https://wxo.example.com"
+RUNS_URL = f"{WXO_BASE}/v1/orchestrate/runs"
+IAM_URL = "https://iam.cloud.ibm.com/identity/token"
+AGENT_QUALITY = "agent-academic-quality-001"
+
+
+@pytest.fixture(autouse=True)
+def reset_iam_token():
+    iam_module._token = None
+    iam_module._expires_at = 0.0
+    yield
+
+
+def test_scripted_mode_serves_the_canned_diagnosis_without_calling_the_agent(client, monkeypatch):
+    monkeypatch.setenv("AI_MODE", "scripted")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_QUALITY", AGENT_QUALITY)
+
+    with respx.mock(assert_all_called=False) as router:
+        iam = router.post(IAM_URL).mock(return_value=httpx.Response(500))
+        diagnosis = client.get(PROFILE_URL).json()["diagnosis"]
+
+    assert not iam.called
+    for name in ("CS101", "CS101-SLO1", "CS101-01", "CS101-02", "PLO1"):
+        assert name in diagnosis, f"canned diagnosis never names {name}"
+    assert "moderat" in diagnosis.lower()
+
+
+# --- live: the agent narrates; on failure the canned paragraph stands ---
+
+def _completed_run_response(run_id: str, text: str) -> dict:
+    return {
+        "id": run_id,
+        "status": "completed",
+        "result": {
+            "data": {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"id": "1", "response_type": "text", "text": text}],
+                }
+            }
+        },
+    }
+
+
+@pytest.fixture
+def live_mode(monkeypatch):
+    monkeypatch.setenv("AI_MODE", "live")
+    monkeypatch.setenv("WXO_BASE_URL", WXO_BASE)
+    monkeypatch.setenv("WXO_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_ID_ACADEMIC_QUALITY", AGENT_QUALITY)
+
+
+def test_live_diagnosis_comes_from_the_agent_and_asks_about_the_flagged_slo(client, live_mode):
+    import json
+
+    sent: list[dict] = []
+
+    def capture(request):
+        sent.append(json.loads(request.content))
+        return httpx.Response(200, json={"run_id": "run-quality"})
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(side_effect=capture)
+        router.get(f"{RUNS_URL}/run-quality").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-quality", "Live agent: moderate CS101-SLO1 first.")
+            )
+        )
+
+        diagnosis = client.get(PROFILE_URL).json()["diagnosis"]
+
+    assert diagnosis == "Live agent: moderate CS101-SLO1 first."
+
+    [request] = sent
+    assert request["agent_id"] == AGENT_QUALITY
+    content = request["message"]["content"]
+    # A plain sentence, not JSON, like the cohort agent's payload (#48) — and
+    # it hands the agent the ids its tools take and the names the answer must use.
+    assert not content.lstrip().startswith("{")
+    for name in ("prog-001", "crs-001", "CS101", "CS101-SLO1", "CS101-01", "CS101-02", "2024-Fall"):
+        assert name in content, f"agent payload never mentions {name}"
+
+
+def test_diagnosis_falls_back_to_the_canned_paragraph_when_the_run_fails(client, live_mode):
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-quality-fail"}))
+        router.get(f"{RUNS_URL}/run-quality-fail").mock(
+            return_value=httpx.Response(200, json={"id": "run-quality-fail", "status": "failed"})
+        )
+
+        diagnosis = client.get(PROFILE_URL).json()["diagnosis"]
+
+    assert diagnosis.startswith("CS101-SLO1 (writing basic Python programs) feeds PLO1")
+
+
+def test_diagnosis_falls_back_when_orchestrate_is_unreachable(client, live_mode):
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(side_effect=httpx.ConnectError("no route to IAM"))
+
+        diagnosis = client.get(PROFILE_URL).json()["diagnosis"]
+
+    assert diagnosis.startswith("CS101-SLO1 (writing basic Python programs) feeds PLO1")
+
+
+def test_stream_shows_the_canned_diagnosis_at_once_and_streams_the_live_one_in(client, live_mode):
+    import json
+
+    with respx.mock(assert_all_mocked=True) as router:
+        router.post(IAM_URL).mock(
+            return_value=httpx.Response(200, json={"access_token": "tok-abc", "expires_in": 3600})
+        )
+        router.post(RUNS_URL).mock(return_value=httpx.Response(200, json={"run_id": "run-stream"}))
+        router.get(f"{RUNS_URL}/run-stream").mock(
+            return_value=httpx.Response(
+                200, json=_completed_run_response("run-stream", "Live agent: streamed diagnosis.")
+            )
+        )
+
+        with client.stream("GET", f"{PROFILE_URL}/stream") as response:
+            body = "".join(response.iter_text())
+
+    events = [chunk for chunk in body.split("\n\n") if chunk.strip()]
+    names = [e.split("\n", 1)[0].removeprefix("event: ") for e in events]
+    assert names == ["base", "field", "done"]
+
+    base = json.loads(events[0].split("data: ", 1)[1])
+    assert base["diagnosis"].startswith("CS101-SLO1 (writing basic Python programs) feeds PLO1")
+    field = json.loads(events[1].split("data: ", 1)[1])
+    assert field == {"path": "diagnosis", "value": "Live agent: streamed diagnosis."}
