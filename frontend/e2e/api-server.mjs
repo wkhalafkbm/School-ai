@@ -467,6 +467,53 @@ const ROUTES = {
     ],
   },
 
+  // Academic Quality (#98): the CS101 marking variance the demo turns on.
+  "/api/academic-quality/profile": {
+    stage_summary: {
+      health: "needs_attention",
+      open_flag_count: 1,
+      routed_flag_count: 0,
+    },
+    moderation_variance_flags: [
+      {
+        course_id: "crs-001",
+        course_code: "CS101",
+        course_name: "Introduction to Computer Science",
+        slo_id: "slo-001",
+        slo_code: "CS101-SLO1",
+        slo_description:
+          "Students will be able to write basic Python programs using variables, loops, and conditionals",
+        semester: "2024-Fall",
+        sections: [
+          {
+            section_id: "sec-001",
+            section_code: "CS101-01",
+            instructor_id: "fac-001",
+            instructor_name: "Dr. Ahmed Al-Rashidi",
+            proficiency_rate: 0.913,
+            assessed_students: 23,
+            proficient_count: 21,
+          },
+          {
+            section_id: "sec-001b",
+            section_code: "CS101-02",
+            instructor_id: "fac-010",
+            instructor_name: "Dr. Noura Al-Azemi",
+            proficiency_rate: 0.542,
+            assessed_students: 24,
+            proficient_count: 13,
+          },
+        ],
+        gap_points: 37.1,
+        threshold_points: 20,
+        trigger: "Marking variance flagged — CS101 CS101-SLO1 (2024-Fall)",
+        moderation_owner_name: "Programme Quality Lead",
+        moderation_owner_role: "programme quality lead",
+        routed_item: null,
+      },
+    ],
+  },
+
   "/api/career-alumni/profile": {
     stage_summary: {
       health: "opportunity",
